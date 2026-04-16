@@ -1,0 +1,1548 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>FlashCards</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg:#0f0e17;--surface:#1a1929;--surface2:#252438;
+  --card-a:#1e1d30;--card-b:#16213e;
+  --text:#fffffe;--muted:#9a9bb8;--muted2:#6b6d8a;
+  --accent:#ff6b6b;--accent2:#ffd166;--accent3:#06d6a0;--accent4:#a78bfa;
+  --border:rgba(255,255,255,0.08);--shadow:rgba(0,0,0,0.5);
+  --correct:#06d6a0;--wrong:#ff6b6b;--skip:#ffd166;
+  --nav-h:60px;
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+}
+.light{
+  --bg:#f4f4f8;--surface:#ffffff;--surface2:#eaeaf0;
+  --card-a:#ffffff;--card-b:#eef0fb;
+  --text:#1a1929;--muted:#5a5c78;--muted2:#9a9bb8;
+  --border:rgba(0,0,0,0.09);--shadow:rgba(0,0,0,0.1);
+}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--text);display:flex;flex-direction:column}
+
+/* TOPBAR */
+.topbar{
+  height:52px;flex-shrink:0;
+  background:var(--bg);border-bottom:1px solid var(--border);
+  padding:0 14px;display:flex;align-items:center;gap:10px;
+  position:relative;z-index:10;
+}
+.topbar h1{font-size:1rem;font-weight:700;flex:1;letter-spacing:-.3px}
+.topbar h1 span{color:var(--accent)}
+.icon-btn{
+  width:36px;height:36px;border-radius:10px;border:1px solid var(--border);
+  background:var(--surface);color:var(--text);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;font-size:1rem;
+  flex-shrink:0;transition:all .2s;
+}
+.icon-btn:active{transform:scale(.93)}
+
+/* SCROLL AREA */
+.scroll-area{
+  flex:1;overflow-y:auto;overflow-x:hidden;
+  -webkit-overflow-scrolling:touch;
+  padding-bottom:calc(var(--nav-h) + 16px);
+}
+.page-content{max-width:520px;margin:0 auto;padding:14px 14px 0}
+
+/* TABS */
+.tab-scroll{overflow-x:auto;margin-bottom:12px;padding-bottom:4px;-webkit-overflow-scrolling:touch}
+.tab-scroll::-webkit-scrollbar{height:0}
+.tabs{display:flex;gap:6px;width:max-content}
+.tab{
+  padding:6px 14px;border-radius:99px;border:1px solid var(--border);
+  background:var(--surface);color:var(--muted);cursor:pointer;
+  font-size:.75rem;font-family:inherit;white-space:nowrap;
+  transition:all .2s;min-height:34px;display:flex;align-items:center;
+}
+.tab.active{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+.tab.has-prog{border-color:var(--accent3);color:var(--accent3)}
+.tab.has-prog.active{background:var(--accent3);border-color:var(--accent3);color:#0f0e17}
+
+/* MODE ROW */
+.mode-row{display:flex;gap:8px;margin-bottom:12px}
+.mode-btn{
+  flex:1;padding:9px 4px;border-radius:12px;border:1px solid var(--border);
+  background:var(--surface);color:var(--muted);cursor:pointer;
+  font-size:.78rem;font-family:inherit;font-weight:500;text-align:center;
+  transition:all .15s;min-height:40px;
+}
+.mode-btn.active{background:var(--accent4);border-color:var(--accent4);color:#fff}
+
+/* PROGRESS BAR */
+.prog-wrap{margin-bottom:12px}
+.prog-info{display:flex;justify-content:space-between;font-size:.75rem;color:var(--muted);margin-bottom:5px}
+.prog-bar{height:5px;background:var(--surface2);border-radius:99px;overflow:hidden}
+.prog-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:99px;transition:width .4s}
+
+/* STATS MINI */
+.stats-mini{display:flex;gap:8px;margin-bottom:12px}
+.stat-chip{flex:1;padding:8px;border-radius:12px;background:var(--surface);border:1px solid var(--border);text-align:center}
+.stat-chip .num{font-size:1.25rem;font-weight:700}
+.stat-chip .lbl{font-size:.65rem;color:var(--muted);margin-top:1px}
+.green{color:var(--correct)}.red{color:var(--wrong)}.yellow{color:var(--skip)}.purple{color:var(--accent4)}
+
+/* FLASH CARD */
+.card-scene{
+  width:100%;height:210px;
+  cursor:pointer;margin-bottom:12px;
+  position:relative;
+}
+/* Use opacity-swap instead of 3D flip for better Safari/mobile support */
+.card-face{
+  position:absolute;inset:0;border-radius:20px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:24px 20px;border:1px solid var(--border);
+  transition:opacity .25s,transform .25s;
+  backface-visibility:hidden;-webkit-backface-visibility:hidden;
+}
+.card-front{background:var(--card-a);box-shadow:0 8px 32px var(--shadow)}
+.card-back{
+  background:var(--card-b);box-shadow:0 8px 32px var(--shadow);
+  opacity:0;transform:scale(.98);
+  pointer-events:none;
+}
+.card-scene.flipped .card-front{opacity:0;transform:scale(.98);pointer-events:none}
+.card-scene.flipped .card-back{opacity:1;transform:scale(1);pointer-events:auto}
+.card-lbl{font-size:.65rem;letter-spacing:2px;text-transform:uppercase;color:var(--muted2);margin-bottom:8px}
+.card-word{font-size:clamp(1.6rem,5.5vw,2.4rem);font-weight:700;text-align:center;line-height:1.15}
+.card-front .card-word{color:var(--text)}
+.card-back .card-word{color:var(--accent2)}
+.card-ph{margin-top:7px;font-size:.84rem;color:var(--accent3);font-weight:400}
+.card-meaning{margin-top:6px;font-size:.84rem;color:var(--muted);text-align:center}
+.card-ex{margin-top:5px;font-size:.73rem;color:var(--muted2);text-align:center;font-style:italic}
+.card-hint{font-size:.7rem;color:var(--muted2);text-align:center;margin-bottom:8px}
+
+/* CONTROLS */
+.ctrl-row{display:flex;gap:10px;margin-bottom:12px}
+.btn{
+  padding:13px 20px;border-radius:99px;border:none;font-family:inherit;
+  font-size:.9rem;font-weight:600;cursor:pointer;transition:all .15s;
+  min-height:48px;
+}
+.btn:active{transform:scale(.97)}
+.btn-know{background:var(--correct);color:#0f0e17;flex:1}
+.btn-wrong{background:var(--wrong);color:#fff;flex:1}
+.btn-flip{background:var(--surface2);color:var(--text);flex:1;border:1px solid var(--border)}
+
+/* QUIZ */
+.quiz-word{
+  text-align:center;padding:24px 20px 18px;border-radius:20px;
+  background:var(--card-a);border:1px solid var(--border);
+  box-shadow:0 8px 32px var(--shadow);margin-bottom:12px;
+}
+.quiz-word .qw{font-size:clamp(1.7rem,5.5vw,2.5rem);font-weight:700;color:var(--text)}
+.quiz-word .qph{font-size:.84rem;color:var(--accent3);margin-top:5px}
+.quiz-opts{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.quiz-opt{
+  padding:14px 10px;border-radius:14px;border:1.5px solid var(--border);
+  background:var(--surface);color:var(--text);cursor:pointer;
+  font-family:inherit;font-size:.84rem;font-weight:500;text-align:center;
+  transition:all .15s;line-height:1.35;min-height:52px;
+}
+.quiz-opt:active:not(:disabled){transform:scale(.97)}
+.quiz-opt.correct{background:rgba(6,214,160,.15);border-color:var(--correct);color:var(--correct)}
+.quiz-opt.wrong{background:rgba(255,107,107,.15);border-color:var(--wrong);color:var(--wrong)}
+.quiz-opt:disabled{cursor:default;opacity:.85}
+
+/* TYPE */
+.type-word{
+  text-align:center;padding:24px 20px 18px;border-radius:20px;
+  background:var(--card-a);border:1px solid var(--border);
+  box-shadow:0 8px 32px var(--shadow);margin-bottom:12px;
+}
+.type-word .tw{font-size:clamp(1.7rem,5.5vw,2.5rem);font-weight:700}
+.type-word .tph{font-size:.84rem;color:var(--accent3);margin-top:5px}
+.type-word .tex{font-size:.73rem;color:var(--muted2);margin-top:5px;font-style:italic}
+.type-input-wrap{display:flex;gap:8px;margin-bottom:8px}
+.type-input{
+  flex:1;padding:13px 16px;border-radius:12px;border:1.5px solid var(--border);
+  background:var(--surface);color:var(--text);font-family:inherit;
+  font-size:16px; /* must be ≥16px to prevent iOS zoom */
+  outline:none;transition:border-color .2s;
+}
+.type-input:focus{border-color:var(--accent4)}
+.type-input.correct-input{border-color:var(--correct);background:rgba(6,214,160,.08)}
+.type-input.wrong-input{border-color:var(--wrong);background:rgba(255,107,107,.08)}
+.btn-check{
+  padding:13px 18px;border-radius:12px;border:none;
+  background:var(--accent4);color:#fff;font-family:inherit;
+  font-size:.9rem;font-weight:600;cursor:pointer;min-height:48px;
+}
+.btn-check:active{opacity:.85;transform:scale(.97)}
+.type-feedback{
+  text-align:center;padding:10px;border-radius:10px;
+  font-size:.88rem;font-weight:600;margin-bottom:10px;display:none;
+}
+.type-feedback.show{display:block}
+.type-feedback.ok{background:rgba(6,214,160,.12);color:var(--correct)}
+.type-feedback.no{background:rgba(255,107,107,.12);color:var(--wrong)}
+
+/* RESULT */
+.result{
+  display:none;flex-direction:column;align-items:center;
+  text-align:center;gap:14px;padding:24px 0;
+}
+.result.show{display:flex}
+.result-emoji{font-size:3rem}
+.result-title{
+  font-size:1.8rem;font-weight:800;
+  background:linear-gradient(135deg,var(--accent2),var(--accent3));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.result-badges{display:flex;gap:20px}
+.r-badge{display:flex;flex-direction:column;align-items:center;gap:3px}
+.r-badge .n{font-size:1.9rem;font-weight:800}
+.r-badge .l{font-size:.68rem;color:var(--muted)}
+.result-msg{color:var(--muted);font-size:.85rem;max-width:260px}
+.btn-restart{
+  padding:13px 32px;border-radius:99px;border:none;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  color:#0f0e17;font-family:inherit;font-size:.92rem;font-weight:700;cursor:pointer;
+  min-height:48px;
+}
+.btn-restart:active{transform:scale(.97)}
+
+/* WEAK */
+.weak-list{display:flex;flex-direction:column;gap:8px;margin-top:4px}
+.weak-item{
+  display:flex;align-items:center;gap:10px;padding:11px 14px;
+  border-radius:12px;background:var(--surface);border:1px solid var(--border);
+}
+.weak-en{font-weight:700;font-size:.92rem;flex:1;min-width:0}
+.weak-vi{font-size:.8rem;color:var(--muted);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.weak-score{
+  font-size:.7rem;padding:3px 8px;border-radius:99px;
+  background:rgba(255,107,107,.15);color:var(--wrong);font-weight:600;
+  white-space:nowrap;flex-shrink:0;
+}
+.empty-state{text-align:center;padding:40px 20px;color:var(--muted);font-size:.88rem}
+.empty-state .big{font-size:2.5rem;display:block;margin-bottom:8px}
+
+/* PROGRESS PAGE */
+.prog-page-header{font-size:.78rem;color:var(--muted);margin-bottom:12px}
+.cat-prog-list{display:flex;flex-direction:column;gap:8px}
+.cat-prog-item{
+  padding:10px 14px;border-radius:12px;
+  background:var(--surface);border:1px solid var(--border);
+}
+.cat-prog-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.cat-prog-name{font-size:.82rem;font-weight:600}
+.cat-prog-pct{font-size:.75rem;color:var(--accent3);font-weight:700}
+.cat-prog-bar{height:4px;background:var(--surface2);border-radius:99px;overflow:hidden}
+.cat-prog-fill{height:100%;background:linear-gradient(90deg,var(--accent3),var(--accent2));border-radius:99px}
+
+/* SECTION TITLES */
+.section-title{font-size:.95rem;font-weight:700;margin-bottom:4px}
+.section-sub{font-size:.75rem;color:var(--muted);margin-bottom:12px}
+
+/* BOTTOM NAV */
+.bottom-nav{
+  height:var(--nav-h);flex-shrink:0;
+  background:var(--bg);border-top:1px solid var(--border);
+  display:flex;justify-content:space-around;align-items:center;
+  padding-bottom:env(safe-area-inset-bottom);
+  position:relative;z-index:10;
+}
+.nav-btn{
+  display:flex;flex-direction:column;align-items:center;gap:2px;
+  padding:4px 20px;border-radius:10px;border:none;background:none;
+  color:var(--muted);cursor:pointer;font-family:inherit;
+  font-size:.6rem;font-weight:500;min-width:60px;
+}
+.nav-btn .ico{font-size:1.35rem;line-height:1}
+.nav-btn.active{color:var(--accent)}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>✦ <span>Flash</span>Cards</h1>
+  <button class="icon-btn" id="btn-theme" onclick="toggleTheme()">🌙</button>
+</div>
+
+<div class="scroll-area" id="scroll-area">
+
+  <!-- LEARN PAGE -->
+  <div id="page-learn" class="page-content">
+    <div class="tab-scroll"><div class="tabs" id="tabs"></div></div>
+    <div class="mode-row">
+      <button class="mode-btn active" id="m-flash" onclick="setMode('flash')">🃏 Thẻ</button>
+      <button class="mode-btn" id="m-quiz" onclick="setMode('quiz')">🎯 Quiz</button>
+      <button class="mode-btn" id="m-type" onclick="setMode('type')">⌨️ Gõ</button>
+    </div>
+    <div class="prog-wrap">
+      <div class="prog-info">
+        <span id="prog-text">Thẻ 1/20</span>
+        <span id="prog-score">✅ 0 &nbsp;❌ 0</span>
+      </div>
+      <div class="prog-bar"><div class="prog-fill" id="prog-fill" style="width:0%"></div></div>
+    </div>
+
+    <!-- FLASH -->
+    <div id="flash-ui">
+      <div class="card-scene" id="card-scene" onclick="flipCard()">
+        <div class="card-face card-front">
+          <div class="card-lbl">Tiếng Anh</div>
+          <div class="card-word" id="f-en">—</div>
+          <div class="card-ph" id="f-ph"></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="card-lbl">Nghĩa</div>
+          <div class="card-word" id="f-vi">—</div>
+          <div class="card-meaning" id="f-type"></div>
+          <div class="card-ex" id="f-ex"></div>
+        </div>
+      </div>
+      <p class="card-hint">👆 Nhấn thẻ để lật · Vuốt trái/phải để trả lời</p>
+      <div class="ctrl-row">
+        <button class="btn btn-wrong" onclick="answer(false)">❌ Chưa nhớ</button>
+        <button class="btn btn-know" onclick="answer(true)">✅ Đã nhớ</button>
+      </div>
+    </div>
+
+    <!-- QUIZ -->
+    <div id="quiz-ui" style="display:none">
+      <div class="quiz-word">
+        <div class="qw" id="q-en">—</div>
+        <div class="qph" id="q-ph"></div>
+      </div>
+      <div class="quiz-opts" id="q-opts"></div>
+    </div>
+
+    <!-- TYPE -->
+    <div id="type-ui" style="display:none">
+      <div class="type-word">
+        <div class="tw" id="t-en">—</div>
+        <div class="tph" id="t-ph"></div>
+        <div class="tex" id="t-ex"></div>
+      </div>
+      <div class="type-input-wrap">
+        <input class="type-input" id="t-input" placeholder="Nhập nghĩa tiếng Việt..."
+          autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+          onkeydown="if(event.key==='Enter')checkType()">
+        <button class="btn-check" onclick="checkType()">→</button>
+      </div>
+      <div class="type-feedback" id="t-feedback"></div>
+      <div class="ctrl-row" id="t-next-row" style="display:none">
+        <button class="btn btn-flip" onclick="nextCard()" style="flex:1">Tiếp theo →</button>
+      </div>
+    </div>
+
+    <!-- RESULT -->
+    <div class="result" id="result">
+      <div class="result-emoji">🎉</div>
+      <div class="result-title">Hoàn thành!</div>
+      <div class="result-badges">
+        <div class="r-badge"><div class="n green" id="r-know">0</div><div class="l">Đã nhớ</div></div>
+        <div class="r-badge"><div class="n red" id="r-wrong">0</div><div class="l">Cần ôn</div></div>
+        <div class="r-badge"><div class="n purple" id="r-total">0</div><div class="l">Tổng</div></div>
+      </div>
+      <div class="result-msg" id="r-msg"></div>
+      <button class="btn-restart" onclick="restart()">🔄 Học lại</button>
+    </div>
+  </div>
+
+  <!-- WEAK PAGE -->
+  <div id="page-weak" class="page-content" style="display:none">
+    <div class="section-title">😰 Từ cần ôn</div>
+    <div class="section-sub">Các từ bạn hay sai (sai ≥ 1 lần, tỷ lệ sai > 30%)</div>
+    <div class="weak-list" id="weak-list"></div>
+  </div>
+
+  <!-- PROGRESS PAGE -->
+  <div id="page-progress" class="page-content" style="display:none">
+    <div class="section-title">📊 Tiến độ học</div>
+    <div class="prog-page-header" id="prog-summary"></div>
+    <div class="cat-prog-list" id="cat-prog-list"></div>
+  </div>
+
+</div><!-- end scroll-area -->
+
+<div class="bottom-nav">
+  <button class="nav-btn active" id="nav-learn" onclick="showPage('learn')">
+    <span class="ico">🃏</span>Học
+  </button>
+  <button class="nav-btn" id="nav-weak" onclick="showPage('weak')">
+    <span class="ico">😰</span>Từ yếu
+  </button>
+  <button class="nav-btn" id="nav-progress" onclick="showPage('progress')">
+    <span class="ico">📊</span>Tiến độ
+  </button>
+</div>
+
+<script>
+const _W1 = {"👨‍👩‍👧 Gia đình":[
+{en:"mother",vi:"mẹ",ph:"/ˈmʌðər/",type:"danh từ",ex:"My mother is kind."},
+{en:"father",vi:"bố / cha",ph:"/ˈfɑːðər/",type:"danh từ",ex:"My father works hard."},
+{en:"sister",vi:"chị / em gái",ph:"/ˈsɪstər/",type:"danh từ",ex:"I have one sister."},
+{en:"brother",vi:"anh / em trai",ph:"/ˈbrʌðər/",type:"danh từ",ex:"My brother is tall."},
+{en:"baby",vi:"em bé",ph:"/ˈbeɪbi/",type:"danh từ",ex:"The baby is sleeping."},
+{en:"family",vi:"gia đình",ph:"/ˈfæməli/",type:"danh từ",ex:"I love my family."},
+{en:"son",vi:"con trai",ph:"/sʌn/",type:"danh từ",ex:"Their son is five."},
+{en:"daughter",vi:"con gái",ph:"/ˈdɔːtər/",type:"danh từ",ex:"She is my daughter."},
+{en:"husband",vi:"chồng",ph:"/ˈhʌzbənd/",type:"danh từ",ex:"Her husband is tall."},
+{en:"wife",vi:"vợ",ph:"/waɪf/",type:"danh từ",ex:"His wife is kind."},
+{en:"grandfather",vi:"ông nội / ông ngoại",ph:"/ˈɡrænfɑːðər/",type:"danh từ",ex:"My grandfather is old."},
+{en:"grandmother",vi:"bà nội / bà ngoại",ph:"/ˈɡrænmʌðər/",type:"danh từ",ex:"Grandmother tells stories."},
+{en:"uncle",vi:"chú / bác / cậu",ph:"/ˈʌŋkəl/",type:"danh từ",ex:"My uncle visits us."},
+{en:"aunt",vi:"cô / dì / bác gái",ph:"/ænt/",type:"danh từ",ex:"Aunt Mary is nice."},
+{en:"cousin",vi:"anh/chị/em họ",ph:"/ˈkʌzən/",type:"danh từ",ex:"My cousin lives far."},
+{en:"nephew",vi:"cháu trai",ph:"/ˈnefjuː/",type:"danh từ",ex:"My nephew is funny."},
+{en:"niece",vi:"cháu gái",ph:"/niːs/",type:"danh từ",ex:"My niece loves cats."},
+{en:"parents",vi:"bố mẹ",ph:"/ˈpɛrənts/",type:"danh từ",ex:"My parents are kind."},
+{en:"children",vi:"những đứa trẻ",ph:"/ˈtʃɪldrən/",type:"danh từ",ex:"The children play outside."},
+{en:"twin",vi:"sinh đôi",ph:"/twɪn/",type:"danh từ",ex:"They are twins."},
+{en:"relative",vi:"họ hàng",ph:"/ˈrɛlətɪv/",type:"danh từ",ex:"We visit our relatives."},
+{en:"stepfather",vi:"cha dượng",ph:"/ˈstɛpfɑːðər/",type:"danh từ",ex:"He is my stepfather."},
+{en:"stepmother",vi:"mẹ kế",ph:"/ˈstɛpmʌðər/",type:"danh từ",ex:"She is kind stepmother."},
+{en:"grandchild",vi:"cháu nội/ngoại",ph:"/ˈɡræntʃaɪld/",type:"danh từ",ex:"Their grandchild is cute."},
+{en:"marriage",vi:"hôn nhân",ph:"/ˈmærɪdʒ/",type:"danh từ",ex:"A happy marriage."},
+{en:"wedding",vi:"đám cưới",ph:"/ˈwɛdɪŋ/",type:"danh từ",ex:"The wedding was beautiful."},
+{en:"divorce",vi:"ly hôn",ph:"/dɪˈvɔːrs/",type:"danh từ",ex:"They got a divorce."},
+{en:"adopt",vi:"nhận nuôi",ph:"/əˈdɒpt/",type:"động từ",ex:"They adopted a child."},
+{en:"raise",vi:"nuôi dưỡng",ph:"/reɪz/",type:"động từ",ex:"She raised three kids."},
+{en:"generation",vi:"thế hệ",ph:"/ˌdʒɛnəˈreɪʃən/",type:"danh từ",ex:"Three generations live here."}
+],
+"🏠 Nhà cửa":[
+{en:"house",vi:"ngôi nhà",ph:"/haʊs/",type:"danh từ",ex:"This is my house."},
+{en:"room",vi:"phòng",ph:"/ruːm/",type:"danh từ",ex:"The room is clean."},
+{en:"kitchen",vi:"nhà bếp",ph:"/ˈkɪtʃɪn/",type:"danh từ",ex:"She cooks in the kitchen."},
+{en:"bed",vi:"giường",ph:"/bɛd/",type:"danh từ",ex:"I sleep in my bed."},
+{en:"door",vi:"cửa",ph:"/dɔːr/",type:"danh từ",ex:"Open the door."},
+{en:"window",vi:"cửa sổ",ph:"/ˈwɪndoʊ/",type:"danh từ",ex:"Open the window."},
+{en:"table",vi:"bàn",ph:"/ˈteɪbəl/",type:"danh từ",ex:"Put it on the table."},
+{en:"chair",vi:"ghế",ph:"/tʃɛr/",type:"danh từ",ex:"Sit on the chair."},
+{en:"floor",vi:"sàn nhà",ph:"/flɔːr/",type:"danh từ",ex:"The floor is clean."},
+{en:"wall",vi:"bức tường",ph:"/wɔːl/",type:"danh từ",ex:"The wall is white."},
+{en:"roof",vi:"mái nhà",ph:"/ruːf/",type:"danh từ",ex:"The roof is red."},
+{en:"stairs",vi:"cầu thang",ph:"/stɛrz/",type:"danh từ",ex:"Walk up the stairs."},
+{en:"bathroom",vi:"phòng tắm",ph:"/ˈbæθruːm/",type:"danh từ",ex:"The bathroom is clean."},
+{en:"bedroom",vi:"phòng ngủ",ph:"/ˈbɛdruːm/",type:"danh từ",ex:"My bedroom is small."},
+{en:"living room",vi:"phòng khách",ph:"/ˈlɪvɪŋ ruːm/",type:"danh từ",ex:"We sit in the living room."},
+{en:"garden",vi:"sân vườn",ph:"/ˈɡɑːrdən/",type:"danh từ",ex:"She grows flowers in the garden."},
+{en:"garage",vi:"nhà để xe",ph:"/ɡəˈrɑːʒ/",type:"danh từ",ex:"The car is in the garage."},
+{en:"lamp",vi:"đèn",ph:"/læmp/",type:"danh từ",ex:"Turn on the lamp."},
+{en:"sofa",vi:"ghế sofa",ph:"/ˈsoʊfə/",type:"danh từ",ex:"Sit on the sofa."},
+{en:"mirror",vi:"gương",ph:"/ˈmɪrər/",type:"danh từ",ex:"Look in the mirror."},
+{en:"curtain",vi:"rèm cửa",ph:"/ˈkɜːrtən/",type:"danh từ",ex:"Close the curtains."},
+{en:"pillow",vi:"gối",ph:"/ˈpɪloʊ/",type:"danh từ",ex:"A soft pillow."},
+{en:"blanket",vi:"chăn",ph:"/ˈblæŋkɪt/",type:"danh từ",ex:"Use a blanket at night."},
+{en:"shelf",vi:"kệ sách",ph:"/ʃɛlf/",type:"danh từ",ex:"Books on the shelf."},
+{en:"drawer",vi:"ngăn kéo",ph:"/drɔːr/",type:"danh từ",ex:"Open the drawer."},
+{en:"closet",vi:"tủ quần áo",ph:"/ˈklɒzɪt/",type:"danh từ",ex:"Hang it in the closet."},
+{en:"fence",vi:"hàng rào",ph:"/fɛns/",type:"danh từ",ex:"A wooden fence."},
+{en:"balcony",vi:"ban công",ph:"/ˈbælkəni/",type:"danh từ",ex:"Sit on the balcony."},
+{en:"ceiling",vi:"trần nhà",ph:"/ˈsiːlɪŋ/",type:"danh từ",ex:"The ceiling is high."},
+{en:"rent",vi:"thuê nhà / tiền thuê",ph:"/rɛnt/",type:"danh từ/động từ",ex:"Pay the rent."}
+],
+"🍜 Thức ăn":[
+{en:"rice",vi:"cơm / gạo",ph:"/raɪs/",type:"danh từ",ex:"I eat rice every day."},
+{en:"water",vi:"nước",ph:"/ˈwɔːtər/",type:"danh từ",ex:"Drink more water."},
+{en:"bread",vi:"bánh mì",ph:"/brɛd/",type:"danh từ",ex:"I eat bread for breakfast."},
+{en:"meat",vi:"thịt",ph:"/miːt/",type:"danh từ",ex:"I like grilled meat."},
+{en:"fruit",vi:"hoa quả",ph:"/fruːt/",type:"danh từ",ex:"Eat more fruit."},
+{en:"egg",vi:"trứng",ph:"/ɛɡ/",type:"danh từ",ex:"I want two eggs."},
+{en:"milk",vi:"sữa",ph:"/mɪlk/",type:"danh từ",ex:"Children drink milk."},
+{en:"fish",vi:"cá",ph:"/fɪʃ/",type:"danh từ",ex:"We eat fish tonight."},
+{en:"soup",vi:"súp / canh",ph:"/suːp/",type:"danh từ",ex:"The soup is hot."},
+{en:"noodle",vi:"mì / bún",ph:"/ˈnuːdəl/",type:"danh từ",ex:"I like noodle soup."},
+{en:"chicken",vi:"gà",ph:"/ˈtʃɪkɪn/",type:"danh từ",ex:"Fried chicken is good."},
+{en:"pork",vi:"thịt lợn",ph:"/pɔːrk/",type:"danh từ",ex:"She cooks pork."},
+{en:"beef",vi:"thịt bò",ph:"/biːf/",type:"danh từ",ex:"I eat beef with rice."},
+{en:"vegetable",vi:"rau củ",ph:"/ˈvɛdʒtəbəl/",type:"danh từ",ex:"Eat your vegetables."},
+{en:"apple",vi:"táo",ph:"/ˈæpəl/",type:"danh từ",ex:"An apple a day."},
+{en:"banana",vi:"chuối",ph:"/bəˈnænə/",type:"danh từ",ex:"Monkeys eat bananas."},
+{en:"orange",vi:"cam",ph:"/ˈɔːrɪndʒ/",type:"danh từ",ex:"I drink orange juice."},
+{en:"sugar",vi:"đường",ph:"/ˈʃʊɡər/",type:"danh từ",ex:"Don't add too much sugar."},
+{en:"salt",vi:"muối",ph:"/sɔːlt/",type:"danh từ",ex:"Add a little salt."},
+{en:"oil",vi:"dầu ăn",ph:"/ɔɪl/",type:"danh từ",ex:"Cook with oil."},
+{en:"butter",vi:"bơ",ph:"/ˈbʌtər/",type:"danh từ",ex:"Spread butter on bread."},
+{en:"cheese",vi:"phô mai",ph:"/tʃiːz/",type:"danh từ",ex:"I love cheese."},
+{en:"coffee",vi:"cà phê",ph:"/ˈkɒfi/",type:"danh từ",ex:"I drink coffee every morning."},
+{en:"tea",vi:"trà",ph:"/tiː/",type:"danh từ",ex:"Hot tea is good."},
+{en:"juice",vi:"nước ép",ph:"/dʒuːs/",type:"danh từ",ex:"Fresh orange juice."},
+{en:"cake",vi:"bánh ngọt",ph:"/keɪk/",type:"danh từ",ex:"Birthday cake is sweet."},
+{en:"cookie",vi:"bánh quy",ph:"/ˈkʊki/",type:"danh từ",ex:"I baked cookies."},
+{en:"ice cream",vi:"kem",ph:"/aɪs kriːm/",type:"danh từ",ex:"Children love ice cream."},
+{en:"pepper",vi:"tiêu",ph:"/ˈpɛpər/",type:"danh từ",ex:"Add black pepper."},
+{en:"garlic",vi:"tỏi",ph:"/ˈɡɑːrlɪk/",type:"danh từ",ex:"Fry garlic in oil."}
+],
+"🏃 Động từ cơ bản":[
+{en:"eat",vi:"ăn",ph:"/iːt/",type:"động từ",ex:"I eat breakfast."},
+{en:"drink",vi:"uống",ph:"/drɪŋk/",type:"động từ",ex:"She drinks tea."},
+{en:"sleep",vi:"ngủ",ph:"/sliːp/",type:"động từ",ex:"I sleep at 10 pm."},
+{en:"walk",vi:"đi bộ",ph:"/wɔːk/",type:"động từ",ex:"I walk to school."},
+{en:"run",vi:"chạy",ph:"/rʌn/",type:"động từ",ex:"He runs every morning."},
+{en:"read",vi:"đọc",ph:"/riːd/",type:"động từ",ex:"I read books."},
+{en:"write",vi:"viết",ph:"/raɪt/",type:"động từ",ex:"She writes a letter."},
+{en:"listen",vi:"lắng nghe",ph:"/ˈlɪsən/",type:"động từ",ex:"Listen to me."},
+{en:"speak",vi:"nói",ph:"/spiːk/",type:"động từ",ex:"He speaks English."},
+{en:"study",vi:"học",ph:"/ˈstʌdi/",type:"động từ",ex:"I study every day."},
+{en:"work",vi:"làm việc",ph:"/wɜːrk/",type:"động từ",ex:"She works in an office."},
+{en:"play",vi:"chơi",ph:"/pleɪ/",type:"động từ",ex:"Children love to play."},
+{en:"cook",vi:"nấu ăn",ph:"/kʊk/",type:"động từ",ex:"I cook dinner."},
+{en:"buy",vi:"mua",ph:"/baɪ/",type:"động từ",ex:"I buy vegetables."},
+{en:"sell",vi:"bán",ph:"/sɛl/",type:"động từ",ex:"He sells fruit."},
+{en:"give",vi:"cho / tặng",ph:"/ɡɪv/",type:"động từ",ex:"Give me the book."},
+{en:"take",vi:"lấy / cầm",ph:"/teɪk/",type:"động từ",ex:"Take an umbrella."},
+{en:"come",vi:"đến",ph:"/kʌm/",type:"động từ",ex:"Come here please."},
+{en:"go",vi:"đi",ph:"/ɡoʊ/",type:"động từ",ex:"I go to school."},
+{en:"see",vi:"nhìn thấy",ph:"/siː/",type:"động từ",ex:"I see a bird."},
+{en:"swim",vi:"bơi",ph:"/swɪm/",type:"động từ",ex:"I can swim well."},
+{en:"jump",vi:"nhảy",ph:"/dʒʌmp/",type:"động từ",ex:"Jump over the puddle."},
+{en:"sit",vi:"ngồi",ph:"/sɪt/",type:"động từ",ex:"Sit down please."},
+{en:"stand",vi:"đứng",ph:"/stænd/",type:"động từ",ex:"Stand up straight."},
+{en:"drive",vi:"lái xe",ph:"/draɪv/",type:"động từ",ex:"She drives to work."},
+{en:"fly",vi:"bay",ph:"/flaɪ/",type:"động từ",ex:"Birds fly high."},
+{en:"carry",vi:"mang / xách",ph:"/ˈkæri/",type:"động từ",ex:"Carry your bag."},
+{en:"push",vi:"đẩy",ph:"/pʊʃ/",type:"động từ",ex:"Push the door open."},
+{en:"pull",vi:"kéo",ph:"/pʊl/",type:"động từ",ex:"Pull the rope."},
+{en:"throw",vi:"ném",ph:"/θroʊ/",type:"động từ",ex:"Throw the ball."}
+],
+"💬 Động từ giao tiếp":[
+{en:"say",vi:"nói / nói rằng",ph:"/seɪ/",type:"động từ",ex:"What did she say?"},
+{en:"tell",vi:"kể / nói với",ph:"/tɛl/",type:"động từ",ex:"Tell me a story."},
+{en:"ask",vi:"hỏi",ph:"/æsk/",type:"động từ",ex:"May I ask a question?"},
+{en:"answer",vi:"trả lời",ph:"/ˈænsər/",type:"động từ",ex:"Please answer the question."},
+{en:"call",vi:"gọi / gọi điện",ph:"/kɔːl/",type:"động từ",ex:"I will call you later."},
+{en:"help",vi:"giúp đỡ",ph:"/hɛlp/",type:"động từ",ex:"Can you help me?"},
+{en:"want",vi:"muốn",ph:"/wɒnt/",type:"động từ",ex:"I want some water."},
+{en:"need",vi:"cần",ph:"/niːd/",type:"động từ",ex:"I need your help."},
+{en:"like",vi:"thích",ph:"/laɪk/",type:"động từ",ex:"I like music."},
+{en:"love",vi:"yêu / rất thích",ph:"/lʌv/",type:"động từ",ex:"I love my family."},
+{en:"know",vi:"biết",ph:"/noʊ/",type:"động từ",ex:"I know the answer."},
+{en:"think",vi:"nghĩ",ph:"/θɪŋk/",type:"động từ",ex:"I think you are right."},
+{en:"understand",vi:"hiểu",ph:"/ˌʌndərˈstænd/",type:"động từ",ex:"Do you understand?"},
+{en:"forget",vi:"quên",ph:"/fərˈɡɛt/",type:"động từ",ex:"Don't forget to eat."},
+{en:"remember",vi:"nhớ",ph:"/rɪˈmɛmbər/",type:"động từ",ex:"Remember my name."},
+{en:"try",vi:"thử / cố gắng",ph:"/traɪ/",type:"động từ",ex:"Try your best."},
+{en:"start",vi:"bắt đầu",ph:"/stɑːrt/",type:"động từ",ex:"Let's start now."},
+{en:"stop",vi:"dừng lại",ph:"/stɒp/",type:"động từ",ex:"Stop the car."},
+{en:"wait",vi:"chờ đợi",ph:"/weɪt/",type:"động từ",ex:"Wait for me."},
+{en:"open",vi:"mở",ph:"/ˈoʊpən/",type:"động từ",ex:"Open your book."},
+{en:"close",vi:"đóng",ph:"/kloʊz/",type:"động từ",ex:"Close the door."},
+{en:"show",vi:"chỉ / cho xem",ph:"/ʃoʊ/",type:"động từ",ex:"Show me the way."},
+{en:"teach",vi:"dạy",ph:"/tiːtʃ/",type:"động từ",ex:"She teaches math."},
+{en:"learn",vi:"học / học được",ph:"/lɜːrn/",type:"động từ",ex:"I learn English."},
+{en:"meet",vi:"gặp gỡ",ph:"/miːt/",type:"động từ",ex:"Nice to meet you."},
+{en:"visit",vi:"thăm / đến thăm",ph:"/ˈvɪzɪt/",type:"động từ",ex:"Visit your grandparents."},
+{en:"invite",vi:"mời",ph:"/ɪnˈvaɪt/",type:"động từ",ex:"Invite your friends."},
+{en:"greet",vi:"chào hỏi",ph:"/ɡriːt/",type:"động từ",ex:"Greet your teacher."},
+{en:"promise",vi:"hứa",ph:"/ˈprɒmɪs/",type:"động từ",ex:"I promise to come."},
+{en:"agree",vi:"đồng ý",ph:"/əˈɡriː/",type:"động từ",ex:"I agree with you."}
+],
+"🌈 Màu sắc":[
+{en:"red",vi:"màu đỏ",ph:"/rɛd/",type:"tính từ",ex:"The apple is red."},
+{en:"blue",vi:"màu xanh dương",ph:"/bluː/",type:"tính từ",ex:"The sky is blue."},
+{en:"green",vi:"màu xanh lá",ph:"/ɡriːn/",type:"tính từ",ex:"Leaves are green."},
+{en:"yellow",vi:"màu vàng",ph:"/ˈjɛloʊ/",type:"tính từ",ex:"The sun is yellow."},
+{en:"white",vi:"màu trắng",ph:"/waɪt/",type:"tính từ",ex:"Snow is white."},
+{en:"black",vi:"màu đen",ph:"/blæk/",type:"tính từ",ex:"The cat is black."},
+{en:"pink",vi:"màu hồng",ph:"/pɪŋk/",type:"tính từ",ex:"She loves pink."},
+{en:"orange",vi:"màu cam",ph:"/ˈɔːrɪndʒ/",type:"tính từ",ex:"The sunset is orange."},
+{en:"purple",vi:"màu tím",ph:"/ˈpɜːrpəl/",type:"tính từ",ex:"The flower is purple."},
+{en:"brown",vi:"màu nâu",ph:"/braʊn/",type:"tính từ",ex:"His hair is brown."},
+{en:"gray",vi:"màu xám",ph:"/ɡreɪ/",type:"tính từ",ex:"The sky is gray today."},
+{en:"gold",vi:"màu vàng kim",ph:"/ɡoʊld/",type:"tính từ",ex:"She wears a gold ring."},
+{en:"silver",vi:"màu bạc",ph:"/ˈsɪlvər/",type:"tính từ",ex:"The spoon is silver."},
+{en:"dark",vi:"tối / đậm màu",ph:"/dɑːrk/",type:"tính từ",ex:"It is dark outside."},
+{en:"light",vi:"sáng / nhạt màu",ph:"/laɪt/",type:"tính từ",ex:"Light blue is nice."},
+{en:"bright",vi:"sáng / rực rỡ",ph:"/braɪt/",type:"tính từ",ex:"The color is bright."},
+{en:"colorful",vi:"nhiều màu sắc",ph:"/ˈkʌlərfəl/",type:"tính từ",ex:"The market is colorful."},
+{en:"pale",vi:"nhợt nhạt",ph:"/peɪl/",type:"tính từ",ex:"She looks pale today."},
+{en:"beige",vi:"màu be",ph:"/beɪʒ/",type:"tính từ",ex:"The wall is beige."},
+{en:"navy",vi:"xanh tím than",ph:"/ˈneɪvi/",type:"tính từ",ex:"He wears a navy shirt."},
+{en:"turquoise",vi:"màu xanh ngọc",ph:"/ˈtɜːrkwɔɪz/",type:"tính từ",ex:"A turquoise sea."},
+{en:"maroon",vi:"màu đỏ sẫm",ph:"/məˈruːn/",type:"tính từ",ex:"A maroon jacket."},
+{en:"cream",vi:"màu kem",ph:"/kriːm/",type:"tính từ",ex:"A cream-colored dress."},
+{en:"transparent",vi:"trong suốt",ph:"/trænsˈpærənt/",type:"tính từ",ex:"Transparent glass."},
+{en:"shade",vi:"sắc thái màu",ph:"/ʃeɪd/",type:"danh từ",ex:"A shade of blue."},
+{en:"tint",vi:"màu nhạt",ph:"/tɪnt/",type:"danh từ",ex:"A tint of red."},
+{en:"stripe",vi:"sọc",ph:"/straɪp/",type:"danh từ",ex:"Blue and white stripes."},
+{en:"pattern",vi:"họa tiết / hoa văn",ph:"/ˈpætərn/",type:"danh từ",ex:"A floral pattern."},
+{en:"rainbow",vi:"cầu vồng",ph:"/ˈreɪnboʊ/",type:"danh từ",ex:"Seven rainbow colors."},
+{en:"mix",vi:"pha trộn màu",ph:"/mɪks/",type:"động từ",ex:"Mix red and blue."}
+],
+"⏰ Thời gian":[
+{en:"today",vi:"hôm nay",ph:"/təˈdeɪ/",type:"trạng từ",ex:"What day is today?"},
+{en:"tomorrow",vi:"ngày mai",ph:"/təˈmɒroʊ/",type:"trạng từ",ex:"See you tomorrow."},
+{en:"yesterday",vi:"hôm qua",ph:"/ˈjɛstərdeɪ/",type:"trạng từ",ex:"I was sick yesterday."},
+{en:"morning",vi:"buổi sáng",ph:"/ˈmɔːrnɪŋ/",type:"danh từ",ex:"Good morning!"},
+{en:"afternoon",vi:"buổi chiều",ph:"/ˌæftərˈnuːn/",type:"danh từ",ex:"See you this afternoon."},
+{en:"evening",vi:"buổi tối",ph:"/ˈiːvnɪŋ/",type:"danh từ",ex:"Good evening!"},
+{en:"night",vi:"ban đêm",ph:"/naɪt/",type:"danh từ",ex:"Good night!"},
+{en:"week",vi:"tuần",ph:"/wiːk/",type:"danh từ",ex:"I work five days a week."},
+{en:"month",vi:"tháng",ph:"/mʌnθ/",type:"danh từ",ex:"January is the first month."},
+{en:"year",vi:"năm",ph:"/jɪər/",type:"danh từ",ex:"Happy New Year!"},
+{en:"hour",vi:"giờ",ph:"/aʊər/",type:"danh từ",ex:"Wait one hour."},
+{en:"minute",vi:"phút",ph:"/ˈmɪnɪt/",type:"danh từ",ex:"Five more minutes."},
+{en:"second",vi:"giây",ph:"/ˈsɛkənd/",type:"danh từ",ex:"Wait a second."},
+{en:"now",vi:"bây giờ",ph:"/naʊ/",type:"trạng từ",ex:"Do it now."},
+{en:"later",vi:"sau này / sau đó",ph:"/ˈleɪtər/",type:"trạng từ",ex:"See you later."},
+{en:"soon",vi:"sớm",ph:"/suːn/",type:"trạng từ",ex:"I will be there soon."},
+{en:"always",vi:"luôn luôn",ph:"/ˈɔːlweɪz/",type:"trạng từ",ex:"I always brush my teeth."},
+{en:"never",vi:"không bao giờ",ph:"/ˈnɛvər/",type:"trạng từ",ex:"I never smoke."},
+{en:"sometimes",vi:"đôi khi",ph:"/ˈsʌmtaɪmz/",type:"trạng từ",ex:"I sometimes eat cake."},
+{en:"often",vi:"thường xuyên",ph:"/ˈɔːfən/",type:"trạng từ",ex:"I often go for walks."},
+{en:"daily",vi:"hàng ngày",ph:"/ˈdeɪli/",type:"trạng từ",ex:"Daily exercise is good."},
+{en:"weekly",vi:"hàng tuần",ph:"/ˈwiːkli/",type:"trạng từ",ex:"A weekly meeting."},
+{en:"midnight",vi:"nửa đêm",ph:"/ˈmɪdnaɪt/",type:"danh từ",ex:"It is midnight."},
+{en:"noon",vi:"buổi trưa",ph:"/nuːn/",type:"danh từ",ex:"Meet at noon."},
+{en:"dawn",vi:"bình minh",ph:"/dɔːn/",type:"danh từ",ex:"Wake up at dawn."},
+{en:"past",vi:"quá khứ",ph:"/pæst/",type:"danh từ",ex:"In the past."},
+{en:"future",vi:"tương lai",ph:"/ˈfjuːtʃər/",type:"danh từ",ex:"Plan for the future."},
+{en:"century",vi:"thế kỷ",ph:"/ˈsɛntʃəri/",type:"danh từ",ex:"The 21st century."},
+{en:"decade",vi:"thập kỷ",ph:"/ˈdɛkeɪd/",type:"danh từ",ex:"A decade ago."},
+{en:"schedule",vi:"lịch trình",ph:"/ˈskɛdʒuːl/",type:"danh từ",ex:"Check your schedule."}
+],
+"📍 Địa điểm":[
+{en:"school",vi:"trường học",ph:"/skuːl/",type:"danh từ",ex:"I go to school."},
+{en:"hospital",vi:"bệnh viện",ph:"/ˈhɒspɪtəl/",type:"danh từ",ex:"She works at a hospital."},
+{en:"market",vi:"chợ",ph:"/ˈmɑːrkɪt/",type:"danh từ",ex:"Go to the market."},
+{en:"park",vi:"công viên",ph:"/pɑːrk/",type:"danh từ",ex:"We play in the park."},
+{en:"bank",vi:"ngân hàng",ph:"/bæŋk/",type:"danh từ",ex:"I go to the bank."},
+{en:"restaurant",vi:"nhà hàng",ph:"/ˈrɛstərɒnt/",type:"danh từ",ex:"Let's eat at a restaurant."},
+{en:"airport",vi:"sân bay",ph:"/ˈɛrpɔːrt/",type:"danh từ",ex:"We are at the airport."},
+{en:"hotel",vi:"khách sạn",ph:"/hoʊˈtɛl/",type:"danh từ",ex:"I stay at a hotel."},
+{en:"street",vi:"đường phố",ph:"/striːt/",type:"danh từ",ex:"Walk down the street."},
+{en:"office",vi:"văn phòng",ph:"/ˈɒfɪs/",type:"danh từ",ex:"He is at the office."},
+{en:"library",vi:"thư viện",ph:"/ˈlaɪbrɛri/",type:"danh từ",ex:"I read at the library."},
+{en:"supermarket",vi:"siêu thị",ph:"/ˈsuːpərmɑːrkɪt/",type:"danh từ",ex:"She shops at the supermarket."},
+{en:"pharmacy",vi:"nhà thuốc",ph:"/ˈfɑːrməsi/",type:"danh từ",ex:"Buy medicine at the pharmacy."},
+{en:"church",vi:"nhà thờ",ph:"/tʃɜːrtʃ/",type:"danh từ",ex:"They go to church."},
+{en:"temple",vi:"chùa / đền",ph:"/ˈtɛmpəl/",type:"danh từ",ex:"Visit the temple."},
+{en:"stadium",vi:"sân vận động",ph:"/ˈsteɪdiəm/",type:"danh từ",ex:"The game is at the stadium."},
+{en:"beach",vi:"bãi biển",ph:"/biːtʃ/",type:"danh từ",ex:"I love the beach."},
+{en:"mountain",vi:"núi",ph:"/ˈmaʊntɪn/",type:"danh từ",ex:"Climb the mountain."},
+{en:"river",vi:"sông",ph:"/ˈrɪvər/",type:"danh từ",ex:"Fish live in the river."},
+{en:"museum",vi:"bảo tàng",ph:"/mjuːˈziːəm/",type:"danh từ",ex:"Visit the museum."},
+{en:"cinema",vi:"rạp chiếu phim",ph:"/ˈsɪnəmə/",type:"danh từ",ex:"Watch a film at the cinema."},
+{en:"gym",vi:"phòng tập thể dục",ph:"/dʒɪm/",type:"danh từ",ex:"Train at the gym."},
+{en:"zoo",vi:"vườn thú",ph:"/zuː/",type:"danh từ",ex:"Children love the zoo."},
+{en:"factory",vi:"nhà máy",ph:"/ˈfæktəri/",type:"danh từ",ex:"He works at a factory."},
+{en:"farm",vi:"trang trại",ph:"/fɑːrm/",type:"danh từ",ex:"Animals live on a farm."},
+{en:"port",vi:"cảng biển",ph:"/pɔːrt/",type:"danh từ",ex:"Ships dock at the port."},
+{en:"border",vi:"biên giới",ph:"/ˈbɔːrdər/",type:"danh từ",ex:"Cross the border."},
+{en:"neighborhood",vi:"khu phố",ph:"/ˈneɪbərhʊd/",type:"danh từ",ex:"A quiet neighborhood."},
+{en:"capital",vi:"thủ đô",ph:"/ˈkæpɪtəl/",type:"danh từ",ex:"Hanoi is Vietnam's capital."},
+{en:"post office",vi:"bưu điện",ph:"/ˈpoʊst ˈɒfɪs/",type:"danh từ",ex:"Send a letter at the post office."}
+],
+"🚗 Phương tiện":[
+{en:"car",vi:"ô tô",ph:"/kɑːr/",type:"danh từ",ex:"I drive a car."},
+{en:"bus",vi:"xe buýt",ph:"/bʌs/",type:"danh từ",ex:"Take the bus."},
+{en:"train",vi:"tàu hỏa",ph:"/treɪn/",type:"danh từ",ex:"The train is fast."},
+{en:"plane",vi:"máy bay",ph:"/pleɪn/",type:"danh từ",ex:"The plane lands soon."},
+{en:"bicycle",vi:"xe đạp",ph:"/ˈbaɪsɪkəl/",type:"danh từ",ex:"I ride my bicycle."},
+{en:"motorcycle",vi:"xe máy",ph:"/ˈmoʊtərsaɪkəl/",type:"danh từ",ex:"He rides a motorcycle."},
+{en:"taxi",vi:"taxi",ph:"/ˈtæksi/",type:"danh từ",ex:"Call a taxi."},
+{en:"ship",vi:"tàu thủy",ph:"/ʃɪp/",type:"danh từ",ex:"The ship is big."},
+{en:"truck",vi:"xe tải",ph:"/trʌk/",type:"danh từ",ex:"A big truck passed."},
+{en:"helicopter",vi:"trực thăng",ph:"/ˈhɛlɪkɒptər/",type:"danh từ",ex:"A helicopter flew over."},
+{en:"road",vi:"đường",ph:"/roʊd/",type:"danh từ",ex:"The road is long."},
+{en:"bridge",vi:"cầu",ph:"/brɪdʒ/",type:"danh từ",ex:"Cross the bridge."},
+{en:"traffic",vi:"giao thông",ph:"/ˈtræfɪk/",type:"danh từ",ex:"Heavy traffic today."},
+{en:"station",vi:"ga / trạm",ph:"/ˈsteɪʃən/",type:"danh từ",ex:"Wait at the station."},
+{en:"ticket",vi:"vé",ph:"/ˈtɪkɪt/",type:"danh từ",ex:"Buy a ticket."},
+{en:"driver",vi:"tài xế",ph:"/ˈdraɪvər/",type:"danh từ",ex:"The driver is friendly."},
+{en:"passenger",vi:"hành khách",ph:"/ˈpæsɪndʒər/",type:"danh từ",ex:"The passengers wait."},
+{en:"fuel",vi:"nhiên liệu / xăng",ph:"/fjuːəl/",type:"danh từ",ex:"The car needs fuel."},
+{en:"seat",vi:"chỗ ngồi",ph:"/siːt/",type:"danh từ",ex:"Find your seat."},
+{en:"luggage",vi:"hành lý",ph:"/ˈlʌɡɪdʒ/",type:"danh từ",ex:"Carry your luggage."},
+{en:"subway",vi:"tàu điện ngầm",ph:"/ˈsʌbweɪ/",type:"danh từ",ex:"Take the subway."},
+{en:"highway",vi:"đường cao tốc",ph:"/ˈhaɪweɪ/",type:"danh từ",ex:"Drive on the highway."},
+{en:"speed",vi:"tốc độ",ph:"/spiːd/",type:"danh từ",ex:"Reduce your speed."},
+{en:"engine",vi:"động cơ",ph:"/ˈɛndʒɪn/",type:"danh từ",ex:"The engine is loud."},
+{en:"wheel",vi:"bánh xe / tay lái",ph:"/wiːl/",type:"danh từ",ex:"Hold the wheel."},
+{en:"parking",vi:"bãi đỗ xe",ph:"/ˈpɑːrkɪŋ/",type:"danh từ",ex:"Find a parking space."},
+{en:"ferry",vi:"phà",ph:"/ˈfɛri/",type:"danh từ",ex:"Cross by ferry."},
+{en:"tram",vi:"tàu điện",ph:"/træm/",type:"danh từ",ex:"Ride the tram."},
+{en:"van",vi:"xe van",ph:"/væn/",type:"danh từ",ex:"A delivery van."},
+{en:"horn",vi:"còi xe",ph:"/hɔːrn/",type:"danh từ",ex:"Don't honk the horn."}
+],
+"👔 Quần áo":[
+{en:"shirt",vi:"áo sơ mi",ph:"/ʃɜːrt/",type:"danh từ",ex:"He wears a white shirt."},
+{en:"pants",vi:"quần dài",ph:"/pænts/",type:"danh từ",ex:"These pants are new."},
+{en:"shoes",vi:"giày",ph:"/ʃuːz/",type:"danh từ",ex:"Tie your shoes."},
+{en:"hat",vi:"mũ",ph:"/hæt/",type:"danh từ",ex:"Wear a hat outside."},
+{en:"dress",vi:"váy / đầm",ph:"/drɛs/",type:"danh từ",ex:"She wears a red dress."},
+{en:"jacket",vi:"áo khoác",ph:"/ˈdʒækɪt/",type:"danh từ",ex:"Wear a jacket."},
+{en:"socks",vi:"tất / vớ",ph:"/sɒks/",type:"danh từ",ex:"My socks are white."},
+{en:"skirt",vi:"chân váy",ph:"/skɜːrt/",type:"danh từ",ex:"She wears a skirt."},
+{en:"coat",vi:"áo khoác dài",ph:"/koʊt/",type:"danh từ",ex:"It's cold, wear a coat."},
+{en:"gloves",vi:"găng tay",ph:"/ɡlʌvz/",type:"danh từ",ex:"She wears red gloves."},
+{en:"scarf",vi:"khăn quàng cổ",ph:"/skɑːrf/",type:"danh từ",ex:"A scarf keeps you warm."},
+{en:"tie",vi:"cà vạt",ph:"/taɪ/",type:"danh từ",ex:"He wears a blue tie."},
+{en:"uniform",vi:"đồng phục",ph:"/ˈjuːnɪfɔːrm/",type:"danh từ",ex:"Students wear a uniform."},
+{en:"glasses",vi:"kính mắt",ph:"/ˈɡlæsɪz/",type:"danh từ",ex:"She wears glasses."},
+{en:"belt",vi:"thắt lưng",ph:"/bɛlt/",type:"danh từ",ex:"He wears a leather belt."},
+{en:"bag",vi:"túi xách",ph:"/bæɡ/",type:"danh từ",ex:"She carries a bag."},
+{en:"pocket",vi:"túi quần áo",ph:"/ˈpɒkɪt/",type:"danh từ",ex:"Put it in your pocket."},
+{en:"button",vi:"nút áo",ph:"/ˈbʌtən/",type:"danh từ",ex:"A button fell off."},
+{en:"zipper",vi:"khóa kéo",ph:"/ˈzɪpər/",type:"danh từ",ex:"The zipper is broken."},
+{en:"sandals",vi:"dép",ph:"/ˈsændəlz/",type:"danh từ",ex:"Wear sandals in summer."},
+{en:"jeans",vi:"quần jeans",ph:"/dʒiːnz/",type:"danh từ",ex:"I wear jeans today."},
+{en:"sweater",vi:"áo len",ph:"/ˈswɛtər/",type:"danh từ",ex:"A warm sweater."},
+{en:"pajamas",vi:"đồ ngủ",ph:"/pəˈdʒɑːməz/",type:"danh từ",ex:"Put on your pajamas."},
+{en:"raincoat",vi:"áo mưa",ph:"/ˈreɪnkoʊt/",type:"danh từ",ex:"Wear a raincoat."},
+{en:"boots",vi:"bốt / ủng",ph:"/buːts/",type:"danh từ",ex:"Snow boots are warm."},
+{en:"hoodie",vi:"áo hoodie",ph:"/ˈhʊdi/",type:"danh từ",ex:"I love my hoodie."},
+{en:"shorts",vi:"quần ngắn",ph:"/ʃɔːrts/",type:"danh từ",ex:"Wear shorts in summer."},
+{en:"fabric",vi:"vải",ph:"/ˈfæbrɪk/",type:"danh từ",ex:"Cotton fabric is soft."},
+{en:"fashion",vi:"thời trang",ph:"/ˈfæʃən/",type:"danh từ",ex:"She loves fashion."},
+{en:"swimsuit",vi:"đồ bơi",ph:"/ˈswɪmsuːt/",type:"danh từ",ex:"Wear a swimsuit."}
+]};
+const _W2 = {"💪 Cơ thể":[
+{en:"head",vi:"đầu",ph:"/hɛd/",type:"danh từ",ex:"Nod your head."},
+{en:"face",vi:"khuôn mặt",ph:"/feɪs/",type:"danh từ",ex:"Wash your face."},
+{en:"eye",vi:"mắt",ph:"/aɪ/",type:"danh từ",ex:"Her eyes are brown."},
+{en:"nose",vi:"mũi",ph:"/noʊz/",type:"danh từ",ex:"My nose is cold."},
+{en:"mouth",vi:"miệng",ph:"/maʊθ/",type:"danh từ",ex:"Open your mouth."},
+{en:"ear",vi:"tai",ph:"/ɪər/",type:"danh từ",ex:"Listen with your ears."},
+{en:"hair",vi:"tóc",ph:"/hɛr/",type:"danh từ",ex:"She has long hair."},
+{en:"hand",vi:"bàn tay",ph:"/hænd/",type:"danh từ",ex:"Wash your hands."},
+{en:"arm",vi:"cánh tay",ph:"/ɑːrm/",type:"danh từ",ex:"Raise your arm."},
+{en:"leg",vi:"chân",ph:"/lɛɡ/",type:"danh từ",ex:"My legs are tired."},
+{en:"foot",vi:"bàn chân",ph:"/fʊt/",type:"danh từ",ex:"My foot hurts."},
+{en:"finger",vi:"ngón tay",ph:"/ˈfɪŋɡər/",type:"danh từ",ex:"Ten fingers."},
+{en:"tooth",vi:"răng",ph:"/tuːθ/",type:"danh từ",ex:"Brush your teeth."},
+{en:"tongue",vi:"lưỡi",ph:"/tʌŋ/",type:"danh từ",ex:"Stick out your tongue."},
+{en:"shoulder",vi:"vai",ph:"/ˈʃoʊldər/",type:"danh từ",ex:"My shoulder is sore."},
+{en:"back",vi:"lưng",ph:"/bæk/",type:"danh từ",ex:"My back hurts."},
+{en:"stomach",vi:"bụng / dạ dày",ph:"/ˈstʌmək/",type:"danh từ",ex:"My stomach is full."},
+{en:"heart",vi:"tim",ph:"/hɑːrt/",type:"danh từ",ex:"My heart beats fast."},
+{en:"skin",vi:"da",ph:"/skɪn/",type:"danh từ",ex:"Healthy skin is important."},
+{en:"blood",vi:"máu",ph:"/blʌd/",type:"danh từ",ex:"Blood is red."},
+{en:"knee",vi:"đầu gối",ph:"/niː/",type:"danh từ",ex:"My knee hurts."},
+{en:"elbow",vi:"khuỷu tay",ph:"/ˈɛlboʊ/",type:"danh từ",ex:"Bend your elbow."},
+{en:"wrist",vi:"cổ tay",ph:"/rɪst/",type:"danh từ",ex:"A sprained wrist."},
+{en:"ankle",vi:"mắt cá chân",ph:"/ˈæŋkəl/",type:"danh từ",ex:"A twisted ankle."},
+{en:"chin",vi:"cằm",ph:"/tʃɪn/",type:"danh từ",ex:"She has a sharp chin."},
+{en:"cheek",vi:"má",ph:"/tʃiːk/",type:"danh từ",ex:"Pink cheeks."},
+{en:"forehead",vi:"trán",ph:"/ˈfɔːrhɛd/",type:"danh từ",ex:"A wide forehead."},
+{en:"lip",vi:"môi",ph:"/lɪp/",type:"danh từ",ex:"Red lips."},
+{en:"neck",vi:"cổ",ph:"/nɛk/",type:"danh từ",ex:"A long neck."},
+{en:"chest",vi:"ngực",ph:"/tʃɛst/",type:"danh từ",ex:"Chest pain."}
+],
+"🌤 Thời tiết":[
+{en:"sun",vi:"mặt trời",ph:"/sʌn/",type:"danh từ",ex:"The sun is bright."},
+{en:"rain",vi:"mưa",ph:"/reɪn/",type:"danh từ",ex:"It is going to rain."},
+{en:"wind",vi:"gió",ph:"/wɪnd/",type:"danh từ",ex:"The wind is strong."},
+{en:"cloud",vi:"đám mây",ph:"/klaʊd/",type:"danh từ",ex:"The clouds are dark."},
+{en:"snow",vi:"tuyết",ph:"/snoʊ/",type:"danh từ",ex:"Snow is falling."},
+{en:"storm",vi:"bão",ph:"/stɔːrm/",type:"danh từ",ex:"A storm is coming."},
+{en:"fog",vi:"sương mù",ph:"/fɒɡ/",type:"danh từ",ex:"There is thick fog."},
+{en:"hot",vi:"nóng",ph:"/hɒt/",type:"tính từ",ex:"It is very hot today."},
+{en:"cold",vi:"lạnh",ph:"/koʊld/",type:"tính từ",ex:"The weather is cold."},
+{en:"warm",vi:"ấm",ph:"/wɔːrm/",type:"tính từ",ex:"Spring is warm."},
+{en:"cool",vi:"mát mẻ",ph:"/kuːl/",type:"tính từ",ex:"It is cool in the morning."},
+{en:"wet",vi:"ướt",ph:"/wɛt/",type:"tính từ",ex:"The ground is wet."},
+{en:"dry",vi:"khô",ph:"/draɪ/",type:"tính từ",ex:"The air is dry."},
+{en:"sunny",vi:"nắng",ph:"/ˈsʌni/",type:"tính từ",ex:"It is sunny today."},
+{en:"rainy",vi:"mưa nhiều",ph:"/ˈreɪni/",type:"tính từ",ex:"A rainy day."},
+{en:"cloudy",vi:"nhiều mây",ph:"/ˈklaʊdi/",type:"tính từ",ex:"It is cloudy outside."},
+{en:"windy",vi:"nhiều gió",ph:"/ˈwɪndi/",type:"tính từ",ex:"It is windy today."},
+{en:"temperature",vi:"nhiệt độ",ph:"/ˈtɛmprɪtʃər/",type:"danh từ",ex:"The temperature is high."},
+{en:"umbrella",vi:"ô / dù",ph:"/ʌmˈbrɛlə/",type:"danh từ",ex:"Take an umbrella."},
+{en:"rainbow",vi:"cầu vồng",ph:"/ˈreɪnboʊ/",type:"danh từ",ex:"A rainbow after rain."},
+{en:"thunder",vi:"sấm sét",ph:"/ˈθʌndər/",type:"danh từ",ex:"Thunder is loud."},
+{en:"lightning",vi:"tia sét",ph:"/ˈlaɪtnɪŋ/",type:"danh từ",ex:"Lightning flashed."},
+{en:"flood",vi:"lũ lụt",ph:"/flʌd/",type:"danh từ",ex:"The flood was bad."},
+{en:"drought",vi:"hạn hán",ph:"/draʊt/",type:"danh từ",ex:"A severe drought."},
+{en:"humidity",vi:"độ ẩm",ph:"/hjuːˈmɪdɪti/",type:"danh từ",ex:"High humidity today."},
+{en:"season",vi:"mùa",ph:"/ˈsiːzən/",type:"danh từ",ex:"Four seasons in a year."},
+{en:"spring",vi:"mùa xuân",ph:"/sprɪŋ/",type:"danh từ",ex:"Flowers bloom in spring."},
+{en:"summer",vi:"mùa hè",ph:"/ˈsʌmər/",type:"danh từ",ex:"Summer is hot."},
+{en:"autumn",vi:"mùa thu",ph:"/ˈɔːtəm/",type:"danh từ",ex:"Leaves fall in autumn."},
+{en:"winter",vi:"mùa đông",ph:"/ˈwɪntər/",type:"danh từ",ex:"Winter is cold."}
+],
+"🐶 Động vật":[
+{en:"dog",vi:"chó",ph:"/dɒɡ/",type:"danh từ",ex:"The dog barks."},
+{en:"cat",vi:"mèo",ph:"/kæt/",type:"danh từ",ex:"The cat sleeps."},
+{en:"bird",vi:"chim",ph:"/bɜːrd/",type:"danh từ",ex:"The bird sings."},
+{en:"fish",vi:"cá",ph:"/fɪʃ/",type:"danh từ",ex:"Fish swim in water."},
+{en:"cow",vi:"bò",ph:"/kaʊ/",type:"danh từ",ex:"The cow gives milk."},
+{en:"pig",vi:"lợn",ph:"/pɪɡ/",type:"danh từ",ex:"The pig is fat."},
+{en:"chicken",vi:"gà",ph:"/ˈtʃɪkɪn/",type:"danh từ",ex:"The chicken lays eggs."},
+{en:"duck",vi:"vịt",ph:"/dʌk/",type:"danh từ",ex:"The duck swims."},
+{en:"horse",vi:"ngựa",ph:"/hɔːrs/",type:"danh từ",ex:"The horse is fast."},
+{en:"elephant",vi:"voi",ph:"/ˈɛlɪfənt/",type:"danh từ",ex:"The elephant is huge."},
+{en:"tiger",vi:"hổ",ph:"/ˈtaɪɡər/",type:"danh từ",ex:"The tiger is dangerous."},
+{en:"lion",vi:"sư tử",ph:"/ˈlaɪən/",type:"danh từ",ex:"The lion roars."},
+{en:"monkey",vi:"khỉ",ph:"/ˈmʌŋki/",type:"danh từ",ex:"Monkeys are clever."},
+{en:"snake",vi:"rắn",ph:"/sneɪk/",type:"danh từ",ex:"The snake is long."},
+{en:"rabbit",vi:"thỏ",ph:"/ˈræbɪt/",type:"danh từ",ex:"The rabbit is cute."},
+{en:"frog",vi:"ếch",ph:"/frɒɡ/",type:"danh từ",ex:"The frog jumps."},
+{en:"butterfly",vi:"bướm",ph:"/ˈbʌtərflaɪ/",type:"danh từ",ex:"A butterfly landed."},
+{en:"bee",vi:"con ong",ph:"/biː/",type:"danh từ",ex:"Bees make honey."},
+{en:"ant",vi:"con kiến",ph:"/ænt/",type:"danh từ",ex:"Ants are hardworking."},
+{en:"mosquito",vi:"muỗi",ph:"/məˈskiːtoʊ/",type:"danh từ",ex:"The mosquito bites."},
+{en:"bear",vi:"gấu",ph:"/bɛr/",type:"danh từ",ex:"The bear is big."},
+{en:"wolf",vi:"chó sói",ph:"/wʊlf/",type:"danh từ",ex:"Wolves hunt at night."},
+{en:"deer",vi:"hươu",ph:"/dɪər/",type:"danh từ",ex:"A deer in the forest."},
+{en:"crocodile",vi:"cá sấu",ph:"/ˈkrɒkədaɪl/",type:"danh từ",ex:"The crocodile is scary."},
+{en:"parrot",vi:"vẹt",ph:"/ˈpærət/",type:"danh từ",ex:"The parrot talks."},
+{en:"owl",vi:"cú mèo",ph:"/aʊl/",type:"danh từ",ex:"Owls fly at night."},
+{en:"shark",vi:"cá mập",ph:"/ʃɑːrk/",type:"danh từ",ex:"A great white shark."},
+{en:"whale",vi:"cá voi",ph:"/weɪl/",type:"danh từ",ex:"Whales are huge."},
+{en:"turtle",vi:"rùa",ph:"/ˈtɜːrtəl/",type:"danh từ",ex:"Turtles live long."},
+{en:"goat",vi:"dê",ph:"/ɡoʊt/",type:"danh từ",ex:"The goat eats grass."}
+],
+"🌿 Thiên nhiên":[
+{en:"tree",vi:"cái cây",ph:"/triː/",type:"danh từ",ex:"The tree is tall."},
+{en:"flower",vi:"hoa",ph:"/ˈflaʊər/",type:"danh từ",ex:"The flowers are beautiful."},
+{en:"grass",vi:"cỏ",ph:"/ɡræs/",type:"danh từ",ex:"The grass is green."},
+{en:"leaf",vi:"lá cây",ph:"/liːf/",type:"danh từ",ex:"The leaf fell down."},
+{en:"rock",vi:"tảng đá",ph:"/rɒk/",type:"danh từ",ex:"Sit on the rock."},
+{en:"soil",vi:"đất",ph:"/sɔɪl/",type:"danh từ",ex:"Plants grow in soil."},
+{en:"sea",vi:"biển",ph:"/siː/",type:"danh từ",ex:"The sea is calm."},
+{en:"lake",vi:"hồ",ph:"/leɪk/",type:"danh từ",ex:"Fish in the lake."},
+{en:"forest",vi:"rừng",ph:"/ˈfɒrɪst/",type:"danh từ",ex:"The forest is quiet."},
+{en:"desert",vi:"sa mạc",ph:"/ˈdɛzərt/",type:"danh từ",ex:"It is dry in the desert."},
+{en:"island",vi:"hòn đảo",ph:"/ˈaɪlənd/",type:"danh từ",ex:"The island is small."},
+{en:"valley",vi:"thung lũng",ph:"/ˈvæli/",type:"danh từ",ex:"The valley is green."},
+{en:"sky",vi:"bầu trời",ph:"/skaɪ/",type:"danh từ",ex:"The sky is clear."},
+{en:"star",vi:"ngôi sao",ph:"/stɑːr/",type:"danh từ",ex:"The stars shine at night."},
+{en:"moon",vi:"mặt trăng",ph:"/muːn/",type:"danh từ",ex:"The moon is full tonight."},
+{en:"earth",vi:"trái đất",ph:"/ɜːrθ/",type:"danh từ",ex:"We live on Earth."},
+{en:"fire",vi:"lửa",ph:"/ˈfaɪər/",type:"danh từ",ex:"The fire is warm."},
+{en:"air",vi:"không khí",ph:"/ɛr/",type:"danh từ",ex:"Fresh air is healthy."},
+{en:"ice",vi:"băng đá",ph:"/aɪs/",type:"danh từ",ex:"Ice is cold."},
+{en:"wave",vi:"sóng biển",ph:"/weɪv/",type:"danh từ",ex:"Big waves today."},
+{en:"branch",vi:"cành cây",ph:"/bræntʃ/",type:"danh từ",ex:"A bird on the branch."},
+{en:"root",vi:"rễ cây",ph:"/ruːt/",type:"danh từ",ex:"Roots grow underground."},
+{en:"seed",vi:"hạt giống",ph:"/siːd/",type:"danh từ",ex:"Plant a seed."},
+{en:"sand",vi:"cát",ph:"/sænd/",type:"danh từ",ex:"Sand on the beach."},
+{en:"mud",vi:"bùn",ph:"/mʌd/",type:"danh từ",ex:"Muddy after rain."},
+{en:"cave",vi:"hang động",ph:"/keɪv/",type:"danh từ",ex:"Explore the cave."},
+{en:"waterfall",vi:"thác nước",ph:"/ˈwɔːtərfɔːl/",type:"danh từ",ex:"A beautiful waterfall."},
+{en:"jungle",vi:"rừng nhiệt đới",ph:"/ˈdʒʌŋɡəl/",type:"danh từ",ex:"Animals live in the jungle."},
+{en:"plain",vi:"đồng bằng",ph:"/pleɪn/",type:"danh từ",ex:"Flat plains."},
+{en:"sunset",vi:"hoàng hôn",ph:"/ˈsʌnsɛt/",type:"danh từ",ex:"A beautiful sunset."}
+],
+"📚 Trường học":[
+{en:"student",vi:"học sinh / sinh viên",ph:"/ˈstjuːdənt/",type:"danh từ",ex:"She is a good student."},
+{en:"teacher",vi:"giáo viên",ph:"/ˈtiːtʃər/",type:"danh từ",ex:"The teacher is kind."},
+{en:"book",vi:"quyển sách",ph:"/bʊk/",type:"danh từ",ex:"Read the book."},
+{en:"pen",vi:"bút mực",ph:"/pɛn/",type:"danh từ",ex:"Give me a pen."},
+{en:"pencil",vi:"bút chì",ph:"/ˈpɛnsəl/",type:"danh từ",ex:"Draw with a pencil."},
+{en:"notebook",vi:"vở / sổ tay",ph:"/ˈnoʊtbʊk/",type:"danh từ",ex:"Write in your notebook."},
+{en:"class",vi:"lớp học",ph:"/klæs/",type:"danh từ",ex:"Class starts at 8."},
+{en:"homework",vi:"bài tập về nhà",ph:"/ˈhoʊmwɜːrk/",type:"danh từ",ex:"Do your homework."},
+{en:"exam",vi:"kỳ thi",ph:"/ɪɡˈzæm/",type:"danh từ",ex:"Study for the exam."},
+{en:"lesson",vi:"bài học",ph:"/ˈlɛsən/",type:"danh từ",ex:"Today's lesson is hard."},
+{en:"blackboard",vi:"bảng đen",ph:"/ˈblækbɔːrd/",type:"danh từ",ex:"Write on the blackboard."},
+{en:"ruler",vi:"cái thước",ph:"/ˈruːlər/",type:"danh từ",ex:"Use a ruler to draw."},
+{en:"eraser",vi:"cục tẩy",ph:"/ɪˈreɪzər/",type:"danh từ",ex:"Use the eraser."},
+{en:"dictionary",vi:"từ điển",ph:"/ˈdɪkʃənɛri/",type:"danh từ",ex:"Look it up in a dictionary."},
+{en:"map",vi:"bản đồ",ph:"/mæp/",type:"danh từ",ex:"Look at the map."},
+{en:"question",vi:"câu hỏi",ph:"/ˈkwɛstʃən/",type:"danh từ",ex:"Ask a question."},
+{en:"answer",vi:"câu trả lời",ph:"/ˈænsər/",type:"danh từ",ex:"Give the answer."},
+{en:"grade",vi:"điểm số / lớp",ph:"/ɡreɪd/",type:"danh từ",ex:"I got a good grade."},
+{en:"university",vi:"đại học",ph:"/ˌjuːnɪˈvɜːrsɪti/",type:"danh từ",ex:"She goes to university."},
+{en:"subject",vi:"môn học",ph:"/ˈsʌbdʒɪkt/",type:"danh từ",ex:"Math is my favorite subject."},
+{en:"principal",vi:"hiệu trưởng",ph:"/ˈprɪnsɪpəl/",type:"danh từ",ex:"The principal is strict."},
+{en:"classroom",vi:"phòng học",ph:"/ˈklɑːsruːm/",type:"danh từ",ex:"A clean classroom."},
+{en:"essay",vi:"bài luận",ph:"/ˈɛseɪ/",type:"danh từ",ex:"Write an essay."},
+{en:"project",vi:"dự án / đề tài",ph:"/ˈprɒdʒɛkt/",type:"danh từ",ex:"Group project."},
+{en:"semester",vi:"học kỳ",ph:"/sɪˈmɛstər/",type:"danh từ",ex:"End of semester."},
+{en:"scholarship",vi:"học bổng",ph:"/ˈskɒlərʃɪp/",type:"danh từ",ex:"Win a scholarship."},
+{en:"graduate",vi:"tốt nghiệp",ph:"/ˈɡrædʒueɪt/",type:"động từ",ex:"She will graduate."},
+{en:"absent",vi:"vắng mặt",ph:"/ˈæbsənt/",type:"tính từ",ex:"He is absent today."},
+{en:"present",vi:"có mặt",ph:"/ˈprɛzənt/",type:"tính từ",ex:"Everyone is present."},
+{en:"knowledge",vi:"kiến thức",ph:"/ˈnɒlɪdʒ/",type:"danh từ",ex:"Knowledge is power."}
+],
+"💼 Nghề nghiệp":[
+{en:"doctor",vi:"bác sĩ",ph:"/ˈdɒktər/",type:"danh từ",ex:"The doctor helps people."},
+{en:"nurse",vi:"y tá",ph:"/nɜːrs/",type:"danh từ",ex:"The nurse is kind."},
+{en:"engineer",vi:"kỹ sư",ph:"/ˌɛndʒɪˈnɪər/",type:"danh từ",ex:"He is an engineer."},
+{en:"farmer",vi:"nông dân",ph:"/ˈfɑːrmər/",type:"danh từ",ex:"The farmer grows rice."},
+{en:"cook",vi:"đầu bếp",ph:"/kʊk/",type:"danh từ",ex:"The cook makes good food."},
+{en:"police",vi:"cảnh sát",ph:"/pəˈliːs/",type:"danh từ",ex:"Call the police."},
+{en:"soldier",vi:"người lính",ph:"/ˈsoʊldʒər/",type:"danh từ",ex:"The soldier is brave."},
+{en:"artist",vi:"nghệ sĩ",ph:"/ˈɑːrtɪst/",type:"danh từ",ex:"She is an artist."},
+{en:"singer",vi:"ca sĩ",ph:"/ˈsɪŋər/",type:"danh từ",ex:"He is a famous singer."},
+{en:"actor",vi:"diễn viên",ph:"/ˈæktər/",type:"danh từ",ex:"She is an actor."},
+{en:"pilot",vi:"phi công",ph:"/ˈpaɪlət/",type:"danh từ",ex:"The pilot lands the plane."},
+{en:"journalist",vi:"nhà báo",ph:"/ˈdʒɜːrnəlɪst/",type:"danh từ",ex:"She is a journalist."},
+{en:"lawyer",vi:"luật sư",ph:"/ˈlɔːjər/",type:"danh từ",ex:"He is a lawyer."},
+{en:"accountant",vi:"kế toán",ph:"/əˈkaʊntənt/",type:"danh từ",ex:"She works as an accountant."},
+{en:"manager",vi:"quản lý",ph:"/ˈmænɪdʒər/",type:"danh từ",ex:"He is our manager."},
+{en:"waiter",vi:"bồi bàn",ph:"/ˈweɪtər/",type:"danh từ",ex:"The waiter takes our order."},
+{en:"mechanic",vi:"thợ cơ khí",ph:"/mɪˈkænɪk/",type:"danh từ",ex:"The mechanic fixed my car."},
+{en:"plumber",vi:"thợ ống nước",ph:"/ˈplʌmər/",type:"danh từ",ex:"Call a plumber."},
+{en:"dentist",vi:"nha sĩ",ph:"/ˈdɛntɪst/",type:"danh từ",ex:"Visit the dentist."},
+{en:"programmer",vi:"lập trình viên",ph:"/ˈproʊɡræmər/",type:"danh từ",ex:"She is a programmer."},
+{en:"chef",vi:"bếp trưởng",ph:"/ʃɛf/",type:"danh từ",ex:"The chef cooks well."},
+{en:"photographer",vi:"nhiếp ảnh gia",ph:"/fəˈtɒɡrəfər/",type:"danh từ",ex:"A talented photographer."},
+{en:"architect",vi:"kiến trúc sư",ph:"/ˈɑːrkɪtɛkt/",type:"danh từ",ex:"She is an architect."},
+{en:"scientist",vi:"nhà khoa học",ph:"/ˈsaɪəntɪst/",type:"danh từ",ex:"Scientists research."},
+{en:"firefighter",vi:"lính cứu hỏa",ph:"/ˈfaɪərfaɪtər/",type:"danh từ",ex:"Brave firefighters."},
+{en:"librarian",vi:"thủ thư",ph:"/laɪˈbrɛriən/",type:"danh từ",ex:"Ask the librarian."},
+{en:"carpenter",vi:"thợ mộc",ph:"/ˈkɑːrpɪntər/",type:"danh từ",ex:"A skilled carpenter."},
+{en:"tailor",vi:"thợ may",ph:"/ˈteɪlər/",type:"danh từ",ex:"Visit the tailor."},
+{en:"barber",vi:"thợ cắt tóc",ph:"/ˈbɑːrbər/",type:"danh từ",ex:"Go to the barber."},
+{en:"electrician",vi:"thợ điện",ph:"/ɪˌlɛkˈtrɪʃən/",type:"danh từ",ex:"Call an electrician."}
+],
+"😊 Cảm xúc":[
+{en:"happy",vi:"vui, hạnh phúc",ph:"/ˈhæpi/",type:"tính từ",ex:"I am very happy."},
+{en:"sad",vi:"buồn",ph:"/sæd/",type:"tính từ",ex:"She looks sad."},
+{en:"angry",vi:"tức giận",ph:"/ˈæŋɡri/",type:"tính từ",ex:"He is angry."},
+{en:"scared",vi:"sợ hãi",ph:"/skɛrd/",type:"tính từ",ex:"The child is scared."},
+{en:"excited",vi:"hào hứng",ph:"/ɪkˈsaɪtɪd/",type:"tính từ",ex:"I am excited."},
+{en:"bored",vi:"chán",ph:"/bɔːrd/",type:"tính từ",ex:"I am bored today."},
+{en:"tired",vi:"mệt",ph:"/taɪərd/",type:"tính từ",ex:"I am very tired."},
+{en:"surprised",vi:"ngạc nhiên",ph:"/sərˈpraɪzd/",type:"tính từ",ex:"She was surprised."},
+{en:"worried",vi:"lo lắng",ph:"/ˈwʌrid/",type:"tính từ",ex:"Don't be worried."},
+{en:"confused",vi:"bối rối",ph:"/kənˈfjuːzd/",type:"tính từ",ex:"I am confused."},
+{en:"proud",vi:"tự hào",ph:"/praʊd/",type:"tính từ",ex:"I am proud of you."},
+{en:"shy",vi:"nhút nhát",ph:"/ʃaɪ/",type:"tính từ",ex:"She is very shy."},
+{en:"lonely",vi:"cô đơn",ph:"/ˈloʊnli/",type:"tính từ",ex:"He feels lonely."},
+{en:"calm",vi:"bình tĩnh",ph:"/kɑːm/",type:"tính từ",ex:"Stay calm."},
+{en:"nervous",vi:"hồi hộp",ph:"/ˈnɜːrvəs/",type:"tính từ",ex:"I feel nervous."},
+{en:"grateful",vi:"biết ơn",ph:"/ˈɡreɪtfəl/",type:"tính từ",ex:"I am grateful."},
+{en:"jealous",vi:"ghen tị",ph:"/ˈdʒɛləs/",type:"tính từ",ex:"Don't be jealous."},
+{en:"cheerful",vi:"vui vẻ",ph:"/ˈtʃɪərfəl/",type:"tính từ",ex:"She is always cheerful."},
+{en:"embarrassed",vi:"xấu hổ",ph:"/ɪmˈbærəst/",type:"tính từ",ex:"I feel embarrassed."},
+{en:"disappointed",vi:"thất vọng",ph:"/ˌdɪsəˈpɔɪntɪd/",type:"tính từ",ex:"He was disappointed."},
+{en:"hopeful",vi:"đầy hy vọng",ph:"/ˈhoʊpfəl/",type:"tính từ",ex:"Stay hopeful."},
+{en:"curious",vi:"tò mò",ph:"/ˈkjʊəriəs/",type:"tính từ",ex:"She is curious."},
+{en:"relaxed",vi:"thư giãn",ph:"/rɪˈlækst/",type:"tính từ",ex:"Feel relaxed."},
+{en:"stressed",vi:"căng thẳng",ph:"/strɛst/",type:"tính từ",ex:"Don't be stressed."},
+{en:"emotion",vi:"cảm xúc",ph:"/ɪˈmoʊʃən/",type:"danh từ",ex:"Show your emotions."},
+{en:"mood",vi:"tâm trạng",ph:"/muːd/",type:"danh từ",ex:"Good mood today."},
+{en:"cry",vi:"khóc",ph:"/kraɪ/",type:"động từ",ex:"Don't cry."},
+{en:"laugh",vi:"cười",ph:"/læf/",type:"động từ",ex:"Laugh out loud."},
+{en:"smile",vi:"mỉm cười",ph:"/smaɪl/",type:"động từ",ex:"Smile for the photo."},
+{en:"feel",vi:"cảm thấy",ph:"/fiːl/",type:"động từ",ex:"How do you feel?"}
+],
+"🏥 Sức khỏe":[
+{en:"sick",vi:"ốm bệnh",ph:"/sɪk/",type:"tính từ",ex:"I feel sick."},
+{en:"healthy",vi:"khỏe mạnh",ph:"/ˈhɛlθi/",type:"tính từ",ex:"Eat healthy food."},
+{en:"medicine",vi:"thuốc",ph:"/ˈmɛdsɪn/",type:"danh từ",ex:"Take your medicine."},
+{en:"pain",vi:"cơn đau",ph:"/peɪn/",type:"danh từ",ex:"I feel pain."},
+{en:"fever",vi:"sốt",ph:"/ˈfiːvər/",type:"danh từ",ex:"She has a fever."},
+{en:"cold",vi:"cảm lạnh",ph:"/koʊld/",type:"danh từ",ex:"I have a cold."},
+{en:"cough",vi:"ho",ph:"/kɒf/",type:"danh từ",ex:"He has a bad cough."},
+{en:"headache",vi:"đau đầu",ph:"/ˈhɛdeɪk/",type:"danh từ",ex:"I have a headache."},
+{en:"stomachache",vi:"đau bụng",ph:"/ˈstʌməkeɪk/",type:"danh từ",ex:"She has a stomachache."},
+{en:"allergy",vi:"dị ứng",ph:"/ˈælərdʒi/",type:"danh từ",ex:"He has allergies."},
+{en:"injury",vi:"vết thương",ph:"/ˈɪndʒəri/",type:"danh từ",ex:"He has an injury."},
+{en:"rest",vi:"nghỉ ngơi",ph:"/rɛst/",type:"động từ",ex:"You need rest."},
+{en:"exercise",vi:"tập thể dục",ph:"/ˈɛksərsaɪz/",type:"danh từ",ex:"Exercise every day."},
+{en:"hospital",vi:"bệnh viện",ph:"/ˈhɒspɪtəl/",type:"danh từ",ex:"Go to the hospital."},
+{en:"appointment",vi:"lịch hẹn khám",ph:"/əˈpɔɪntmənt/",type:"danh từ",ex:"Book an appointment."},
+{en:"surgery",vi:"phẫu thuật",ph:"/ˈsɜːrdʒəri/",type:"danh từ",ex:"He had surgery."},
+{en:"bandage",vi:"băng vết thương",ph:"/ˈbændɪdʒ/",type:"danh từ",ex:"Put a bandage on it."},
+{en:"vitamin",vi:"vitamin",ph:"/ˈvaɪtəmɪn/",type:"danh từ",ex:"Take your vitamins."},
+{en:"diet",vi:"chế độ ăn",ph:"/ˈdaɪət/",type:"danh từ",ex:"Follow a healthy diet."},
+{en:"vaccine",vi:"vắc xin",ph:"/vækˈsiːn/",type:"danh từ",ex:"Get the vaccine."},
+{en:"prescription",vi:"đơn thuốc",ph:"/prɪˈskrɪpʃən/",type:"danh từ",ex:"Show the prescription."},
+{en:"symptom",vi:"triệu chứng",ph:"/ˈsɪmptəm/",type:"danh từ",ex:"What are the symptoms?"},
+{en:"treatment",vi:"điều trị",ph:"/ˈtriːtmənt/",type:"danh từ",ex:"Get treatment soon."},
+{en:"recover",vi:"hồi phục",ph:"/rɪˈkʌvər/",type:"động từ",ex:"She will recover."},
+{en:"sneeze",vi:"hắt hơi",ph:"/sniːz/",type:"động từ",ex:"He sneezed loudly."},
+{en:"dizzy",vi:"chóng mặt",ph:"/ˈdɪzi/",type:"tính từ",ex:"I feel dizzy."},
+{en:"ambulance",vi:"xe cấp cứu",ph:"/ˈæmbjʊləns/",type:"danh từ",ex:"Call an ambulance."},
+{en:"checkup",vi:"khám tổng quát",ph:"/ˈtʃɛkʌp/",type:"danh từ",ex:"Annual checkup."},
+{en:"blood pressure",vi:"huyết áp",ph:"/blʌd ˈprɛʃər/",type:"danh từ",ex:"Check your blood pressure."},
+{en:"swallow",vi:"nuốt",ph:"/ˈswɒloʊ/",type:"động từ",ex:"Swallow the pill."}
+],
+"💻 Công nghệ":[
+{en:"phone",vi:"điện thoại",ph:"/foʊn/",type:"danh từ",ex:"My phone is new."},
+{en:"computer",vi:"máy tính",ph:"/kəmˈpjuːtər/",type:"danh từ",ex:"Use the computer."},
+{en:"internet",vi:"internet",ph:"/ˈɪntərnɛt/",type:"danh từ",ex:"Connect to the internet."},
+{en:"email",vi:"thư điện tử",ph:"/ˈiːmeɪl/",type:"danh từ",ex:"Send me an email."},
+{en:"message",vi:"tin nhắn",ph:"/ˈmɛsɪdʒ/",type:"danh từ",ex:"Send a message."},
+{en:"camera",vi:"máy ảnh",ph:"/ˈkæmərə/",type:"danh từ",ex:"Take a photo with the camera."},
+{en:"television",vi:"tivi",ph:"/ˈtɛlɪvɪʒən/",type:"danh từ",ex:"Watch television."},
+{en:"battery",vi:"pin",ph:"/ˈbætəri/",type:"danh từ",ex:"The battery is low."},
+{en:"charger",vi:"sạc điện",ph:"/ˈtʃɑːrdʒər/",type:"danh từ",ex:"Bring your charger."},
+{en:"keyboard",vi:"bàn phím",ph:"/ˈkiːbɔːrd/",type:"danh từ",ex:"Type on the keyboard."},
+{en:"screen",vi:"màn hình",ph:"/skriːn/",type:"danh từ",ex:"The screen is bright."},
+{en:"password",vi:"mật khẩu",ph:"/ˈpæswɜːrd/",type:"danh từ",ex:"Enter your password."},
+{en:"app",vi:"ứng dụng",ph:"/æp/",type:"danh từ",ex:"Download the app."},
+{en:"social media",vi:"mạng xã hội",ph:"/ˈsoʊʃəl ˈmiːdiə/",type:"danh từ",ex:"Use social media less."},
+{en:"website",vi:"trang web",ph:"/ˈwɛbsaɪt/",type:"danh từ",ex:"Visit the website."},
+{en:"download",vi:"tải xuống",ph:"/ˈdaʊnloʊd/",type:"động từ",ex:"Download the file."},
+{en:"upload",vi:"tải lên",ph:"/ˈʌploʊd/",type:"động từ",ex:"Upload the photo."},
+{en:"search",vi:"tìm kiếm",ph:"/sɜːrtʃ/",type:"động từ",ex:"Search for information."},
+{en:"printer",vi:"máy in",ph:"/ˈprɪntər/",type:"danh từ",ex:"Print with the printer."},
+{en:"wifi",vi:"wifi",ph:"/ˈwaɪfaɪ/",type:"danh từ",ex:"Connect to wifi."},
+{en:"cable",vi:"dây cáp",ph:"/ˈkeɪbəl/",type:"danh từ",ex:"Plug in the cable."},
+{en:"software",vi:"phần mềm",ph:"/ˈsɒftweər/",type:"danh từ",ex:"Install the software."},
+{en:"data",vi:"dữ liệu",ph:"/ˈdeɪtə/",type:"danh từ",ex:"Save the data."},
+{en:"click",vi:"nhấp chuột",ph:"/klɪk/",type:"động từ",ex:"Click the button."},
+{en:"delete",vi:"xóa",ph:"/dɪˈliːt/",type:"động từ",ex:"Delete the file."},
+{en:"save",vi:"lưu",ph:"/seɪv/",type:"động từ",ex:"Save your work."},
+{en:"share",vi:"chia sẻ",ph:"/ʃɛr/",type:"động từ",ex:"Share the photo."},
+{en:"notification",vi:"thông báo",ph:"/ˌnoʊtɪfɪˈkeɪʃən/",type:"danh từ",ex:"A new notification."},
+{en:"radio",vi:"đài radio",ph:"/ˈreɪdioʊ/",type:"danh từ",ex:"Listen to the radio."},
+{en:"hardware",vi:"phần cứng",ph:"/ˈhɑːrdweər/",type:"danh từ",ex:"New hardware."}
+],
+"🛒 Mua sắm":[
+{en:"money",vi:"tiền",ph:"/ˈmʌni/",type:"danh từ",ex:"I need money."},
+{en:"price",vi:"giá cả",ph:"/praɪs/",type:"danh từ",ex:"What is the price?"},
+{en:"cheap",vi:"rẻ",ph:"/tʃiːp/",type:"tính từ",ex:"This is cheap."},
+{en:"expensive",vi:"đắt tiền",ph:"/ɪkˈspɛnsɪv/",type:"tính từ",ex:"This is too expensive."},
+{en:"pay",vi:"trả tiền",ph:"/peɪ/",type:"động từ",ex:"Pay at the counter."},
+{en:"change",vi:"tiền thối lại",ph:"/tʃeɪndʒ/",type:"danh từ",ex:"Keep the change."},
+{en:"receipt",vi:"hóa đơn",ph:"/rɪˈsiːt/",type:"danh từ",ex:"Keep the receipt."},
+{en:"sale",vi:"giảm giá / bán hàng",ph:"/seɪl/",type:"danh từ",ex:"There is a big sale."},
+{en:"discount",vi:"chiết khấu",ph:"/ˈdɪskaʊnt/",type:"danh từ",ex:"I got a discount."},
+{en:"credit card",vi:"thẻ tín dụng",ph:"/ˈkrɛdɪt kɑːrd/",type:"danh từ",ex:"Pay by credit card."},
+{en:"cash",vi:"tiền mặt",ph:"/kæʃ/",type:"danh từ",ex:"Pay with cash."},
+{en:"shop",vi:"cửa hàng / mua sắm",ph:"/ʃɒp/",type:"danh từ",ex:"I love to shop."},
+{en:"customer",vi:"khách hàng",ph:"/ˈkʌstəmər/",type:"danh từ",ex:"The customer is always right."},
+{en:"size",vi:"kích cỡ",ph:"/saɪz/",type:"danh từ",ex:"What size do you wear?"},
+{en:"product",vi:"sản phẩm",ph:"/ˈprɒdʌkt/",type:"danh từ",ex:"Good product."},
+{en:"order",vi:"đặt hàng",ph:"/ˈɔːrdər/",type:"danh từ",ex:"I placed an order."},
+{en:"delivery",vi:"giao hàng",ph:"/dɪˈlɪvəri/",type:"danh từ",ex:"Free delivery today."},
+{en:"quality",vi:"chất lượng",ph:"/ˈkwɒlɪti/",type:"danh từ",ex:"Good quality product."},
+{en:"brand",vi:"thương hiệu",ph:"/brænd/",type:"danh từ",ex:"A famous brand."},
+{en:"refund",vi:"hoàn tiền",ph:"/ˈriːfʌnd/",type:"danh từ",ex:"I want a refund."},
+{en:"cart",vi:"giỏ hàng",ph:"/kɑːrt/",type:"danh từ",ex:"Add to cart."},
+{en:"checkout",vi:"thanh toán",ph:"/ˈtʃɛkaʊt/",type:"danh từ",ex:"Go to checkout."},
+{en:"stock",vi:"hàng tồn kho",ph:"/stɒk/",type:"danh từ",ex:"Out of stock."},
+{en:"budget",vi:"ngân sách",ph:"/ˈbʌdʒɪt/",type:"danh từ",ex:"Stay within budget."},
+{en:"bargain",vi:"mặc cả / món hời",ph:"/ˈbɑːrɡɪn/",type:"danh từ",ex:"What a bargain!"},
+{en:"guarantee",vi:"bảo hành",ph:"/ˌɡærənˈtiː/",type:"danh từ",ex:"One-year guarantee."},
+{en:"invoice",vi:"hóa đơn VAT",ph:"/ˈɪnvɔɪs/",type:"danh từ",ex:"Request an invoice."},
+{en:"compare",vi:"so sánh",ph:"/kəmˈpɛr/",type:"động từ",ex:"Compare the prices."},
+{en:"exchange",vi:"đổi hàng",ph:"/ɪksˈtʃeɪndʒ/",type:"động từ",ex:"Exchange for a bigger size."},
+{en:"wrapped",vi:"được gói",ph:"/ræpt/",type:"tính từ",ex:"A wrapped gift."}
+]};
+const _W3 = {"🙏 Giao tiếp lịch sự":[
+{en:"hello",vi:"xin chào",ph:"/hɛˈloʊ/",type:"thán từ",ex:"Hello! How are you?"},
+{en:"goodbye",vi:"tạm biệt",ph:"/ˌɡʊdˈbaɪ/",type:"thán từ",ex:"Goodbye! See you."},
+{en:"please",vi:"làm ơn",ph:"/pliːz/",type:"trạng từ",ex:"Please sit down."},
+{en:"thank you",vi:"cảm ơn",ph:"/θæŋk juː/",type:"cụm từ",ex:"Thank you very much."},
+{en:"sorry",vi:"xin lỗi",ph:"/ˈsɒri/",type:"tính từ",ex:"I am sorry."},
+{en:"excuse me",vi:"xin lỗi / cho hỏi",ph:"/ɪkˈskjuːz miː/",type:"cụm từ",ex:"Excuse me, where is the bank?"},
+{en:"yes",vi:"có / vâng",ph:"/jɛs/",type:"thán từ",ex:"Yes, I agree."},
+{en:"no",vi:"không",ph:"/noʊ/",type:"thán từ",ex:"No, thank you."},
+{en:"okay",vi:"được / ổn",ph:"/oʊˈkeɪ/",type:"thán từ",ex:"Okay, let's go."},
+{en:"welcome",vi:"chào mừng / không có gì",ph:"/ˈwɛlkəm/",type:"thán từ",ex:"You are welcome."},
+{en:"nice to meet you",vi:"rất vui được gặp bạn",ph:"/naɪs tuː miːt juː/",type:"cụm từ",ex:"Nice to meet you!"},
+{en:"how are you",vi:"bạn có khỏe không",ph:"/haʊ ɑːr juː/",type:"cụm từ",ex:"How are you today?"},
+{en:"fine",vi:"khỏe / tốt",ph:"/faɪn/",type:"tính từ",ex:"I am fine, thank you."},
+{en:"congratulations",vi:"chúc mừng",ph:"/kənˌɡrætʃəˈleɪʃənz/",type:"thán từ",ex:"Congratulations on your exam!"},
+{en:"good luck",vi:"chúc may mắn",ph:"/ɡʊd lʌk/",type:"cụm từ",ex:"Good luck tomorrow!"},
+{en:"get well soon",vi:"mau khỏe nhé",ph:"/ɡɛt wɛl suːn/",type:"cụm từ",ex:"Get well soon!"},
+{en:"I don't know",vi:"tôi không biết",ph:"/aɪ doʊnt noʊ/",type:"cụm từ",ex:"I don't know the answer."},
+{en:"I understand",vi:"tôi hiểu rồi",ph:"/aɪ ˌʌndərˈstænd/",type:"cụm từ",ex:"I understand now."},
+{en:"of course",vi:"tất nhiên",ph:"/əv kɔːrs/",type:"cụm từ",ex:"Of course I will help."},
+{en:"no problem",vi:"không vấn đề gì",ph:"/noʊ ˈprɒbləm/",type:"cụm từ",ex:"No problem at all."},
+{en:"see you later",vi:"hẹn gặp lại",ph:"/siː juː ˈleɪtər/",type:"cụm từ",ex:"See you later!"},
+{en:"take care",vi:"giữ gìn sức khỏe",ph:"/teɪk kɛr/",type:"cụm từ",ex:"Take care of yourself."},
+{en:"best wishes",vi:"lời chúc tốt đẹp",ph:"/bɛst ˈwɪʃɪz/",type:"cụm từ",ex:"Best wishes to you."},
+{en:"have a nice day",vi:"chúc một ngày vui",ph:"/hæv ə naɪs deɪ/",type:"cụm từ",ex:"Have a nice day!"},
+{en:"what do you mean",vi:"bạn ý muốn nói gì",ph:"/wɒt duː juː miːn/",type:"cụm từ",ex:"What do you mean?"},
+{en:"speak slowly",vi:"nói chậm thôi",ph:"/spiːk ˈsloʊli/",type:"cụm từ",ex:"Please speak slowly."},
+{en:"I am lost",vi:"tôi bị lạc",ph:"/aɪ æm lɒst/",type:"cụm từ",ex:"I am lost, please help."},
+{en:"how much",vi:"bao nhiêu tiền",ph:"/haʊ mʌtʃ/",type:"cụm từ",ex:"How much is this?"},
+{en:"can you repeat",vi:"bạn có thể lặp lại không",ph:"/kæn juː rɪˈpiːt/",type:"cụm từ",ex:"Can you repeat that?"},
+{en:"help",vi:"giúp đỡ",ph:"/hɛlp/",type:"động từ",ex:"Can you help me?"}
+],
+"⚽ Thể thao":[
+{en:"sport",vi:"thể thao",ph:"/spɔːrt/",type:"danh từ",ex:"I love sport."},
+{en:"football",vi:"bóng đá",ph:"/ˈfʊtbɔːl/",type:"danh từ",ex:"Play football."},
+{en:"basketball",vi:"bóng rổ",ph:"/ˈbɑːskɪtbɔːl/",type:"danh từ",ex:"Shoot the basketball."},
+{en:"tennis",vi:"quần vợt",ph:"/ˈtɛnɪs/",type:"danh từ",ex:"Play tennis."},
+{en:"swimming",vi:"bơi lội",ph:"/ˈswɪmɪŋ/",type:"danh từ",ex:"Swimming is healthy."},
+{en:"running",vi:"chạy bộ",ph:"/ˈrʌnɪŋ/",type:"danh từ",ex:"Running every morning."},
+{en:"cycling",vi:"đạp xe",ph:"/ˈsaɪklɪŋ/",type:"danh từ",ex:"Cycling is fun."},
+{en:"team",vi:"đội",ph:"/tiːm/",type:"danh từ",ex:"Our team won."},
+{en:"player",vi:"cầu thủ / người chơi",ph:"/ˈpleɪər/",type:"danh từ",ex:"A good player."},
+{en:"coach",vi:"huấn luyện viên",ph:"/koʊtʃ/",type:"danh từ",ex:"The coach trains us."},
+{en:"score",vi:"tỷ số / ghi điểm",ph:"/skɔːr/",type:"danh từ",ex:"The score is 2-1."},
+{en:"goal",vi:"bàn thắng / mục tiêu",ph:"/ɡoʊl/",type:"danh từ",ex:"Score a goal!"},
+{en:"win",vi:"thắng",ph:"/wɪn/",type:"động từ",ex:"We want to win."},
+{en:"lose",vi:"thua",ph:"/luːz/",type:"động từ",ex:"Don't lose hope."},
+{en:"champion",vi:"nhà vô địch",ph:"/ˈtʃæmpiən/",type:"danh từ",ex:"She is a champion."},
+{en:"match",vi:"trận đấu",ph:"/mætʃ/",type:"danh từ",ex:"A big match today."},
+{en:"race",vi:"cuộc đua",ph:"/reɪs/",type:"danh từ",ex:"Run a race."},
+{en:"tournament",vi:"giải đấu",ph:"/ˈtʊrnəmənt/",type:"danh từ",ex:"Enter a tournament."},
+{en:"referee",vi:"trọng tài",ph:"/ˌrɛfəˈriː/",type:"danh từ",ex:"The referee decides."},
+{en:"trophy",vi:"cúp / giải thưởng",ph:"/ˈtroʊfi/",type:"danh từ",ex:"Win a trophy."},
+{en:"fitness",vi:"thể lực",ph:"/ˈfɪtnɪs/",type:"danh từ",ex:"Build your fitness."},
+{en:"medal",vi:"huy chương",ph:"/ˈmɛdəl/",type:"danh từ",ex:"Win a gold medal."},
+{en:"stadium",vi:"sân vận động",ph:"/ˈsteɪdiəm/",type:"danh từ",ex:"A packed stadium."},
+{en:"volleyball",vi:"bóng chuyền",ph:"/ˈvɒlibɔːl/",type:"danh từ",ex:"Play volleyball."},
+{en:"golf",vi:"golf",ph:"/ɡɒlf/",type:"danh từ",ex:"He plays golf."},
+{en:"boxing",vi:"quyền anh",ph:"/ˈbɒksɪŋ/",type:"danh từ",ex:"Boxing match."},
+{en:"martial arts",vi:"võ thuật",ph:"/ˈmɑːʃəl ɑːrts/",type:"danh từ",ex:"Learn martial arts."},
+{en:"gym",vi:"phòng tập",ph:"/dʒɪm/",type:"danh từ",ex:"Go to the gym."},
+{en:"training",vi:"luyện tập",ph:"/ˈtreɪnɪŋ/",type:"danh từ",ex:"Daily training."},
+{en:"athlete",vi:"vận động viên",ph:"/ˈæθliːt/",type:"danh từ",ex:"A professional athlete."}
+],
+"🎵 Âm nhạc & NT":[
+{en:"music",vi:"âm nhạc",ph:"/ˈmjuːzɪk/",type:"danh từ",ex:"I love music."},
+{en:"song",vi:"bài hát",ph:"/sɒŋ/",type:"danh từ",ex:"A beautiful song."},
+{en:"sing",vi:"hát",ph:"/sɪŋ/",type:"động từ",ex:"She sings well."},
+{en:"dance",vi:"nhảy múa",ph:"/dæns/",type:"động từ",ex:"I love to dance."},
+{en:"instrument",vi:"nhạc cụ",ph:"/ˈɪnstrəmənt/",type:"danh từ",ex:"Play an instrument."},
+{en:"guitar",vi:"đàn guitar",ph:"/ɡɪˈtɑːr/",type:"danh từ",ex:"He plays guitar."},
+{en:"piano",vi:"đàn piano",ph:"/piˈænoʊ/",type:"danh từ",ex:"She plays piano."},
+{en:"drum",vi:"trống",ph:"/drʌm/",type:"danh từ",ex:"Beat the drum."},
+{en:"concert",vi:"buổi hòa nhạc",ph:"/ˈkɒnsərt/",type:"danh từ",ex:"A live concert."},
+{en:"album",vi:"album nhạc",ph:"/ˈælbəm/",type:"danh từ",ex:"A new album."},
+{en:"paint",vi:"vẽ / sơn",ph:"/peɪnt/",type:"động từ",ex:"She paints pictures."},
+{en:"draw",vi:"vẽ",ph:"/drɔː/",type:"động từ",ex:"Draw a picture."},
+{en:"sculpture",vi:"điêu khắc",ph:"/ˈskʌlptʃər/",type:"danh từ",ex:"A marble sculpture."},
+{en:"gallery",vi:"phòng trưng bày",ph:"/ˈɡæləri/",type:"danh từ",ex:"Visit the gallery."},
+{en:"performance",vi:"buổi biểu diễn",ph:"/pərˈfɔːrməns/",type:"danh từ",ex:"A great performance."},
+{en:"theater",vi:"nhà hát",ph:"/ˈθiːətər/",type:"danh từ",ex:"A play at the theater."},
+{en:"melody",vi:"giai điệu",ph:"/ˈmɛlədi/",type:"danh từ",ex:"A catchy melody."},
+{en:"rhythm",vi:"nhịp điệu",ph:"/ˈrɪðəm/",type:"danh từ",ex:"Feel the rhythm."},
+{en:"lyrics",vi:"lời bài hát",ph:"/ˈlɪrɪks/",type:"danh từ",ex:"Learn the lyrics."},
+{en:"creative",vi:"sáng tạo",ph:"/kriˈeɪtɪv/",type:"tính từ",ex:"A creative person."},
+{en:"compose",vi:"sáng tác",ph:"/kəmˈpoʊz/",type:"động từ",ex:"She composes music."},
+{en:"audience",vi:"khán giả",ph:"/ˈɔːdiəns/",type:"danh từ",ex:"The audience cheered."},
+{en:"stage",vi:"sân khấu",ph:"/steɪdʒ/",type:"danh từ",ex:"Perform on stage."},
+{en:"violin",vi:"đàn violin",ph:"/ˌvaɪəˈlɪn/",type:"danh từ",ex:"Play the violin."},
+{en:"flute",vi:"sáo",ph:"/fluːt/",type:"danh từ",ex:"Play the flute."}
+],
+"🌏 Đất nước & DL":[
+{en:"country",vi:"đất nước",ph:"/ˈkʌntri/",type:"danh từ",ex:"My country is beautiful."},
+{en:"city",vi:"thành phố",ph:"/ˈsɪti/",type:"danh từ",ex:"A big city."},
+{en:"town",vi:"thị trấn",ph:"/taʊn/",type:"danh từ",ex:"A small town."},
+{en:"village",vi:"làng",ph:"/ˈvɪlɪdʒ/",type:"danh từ",ex:"A quiet village."},
+{en:"travel",vi:"du lịch",ph:"/ˈtrævəl/",type:"động từ",ex:"I love to travel."},
+{en:"tourist",vi:"khách du lịch",ph:"/ˈtʊərɪst/",type:"danh từ",ex:"Many tourists visit."},
+{en:"passport",vi:"hộ chiếu",ph:"/ˈpɑːspɔːrt/",type:"danh từ",ex:"Show your passport."},
+{en:"visa",vi:"thị thực",ph:"/ˈviːzə/",type:"danh từ",ex:"Apply for a visa."},
+{en:"language",vi:"ngôn ngữ",ph:"/ˈlæŋɡwɪdʒ/",type:"danh từ",ex:"Learn a new language."},
+{en:"culture",vi:"văn hóa",ph:"/ˈkʌltʃər/",type:"danh từ",ex:"Respect local culture."},
+{en:"tradition",vi:"truyền thống",ph:"/trəˈdɪʃən/",type:"danh từ",ex:"A long tradition."},
+{en:"flag",vi:"cờ",ph:"/flæɡ/",type:"danh từ",ex:"The national flag."},
+{en:"population",vi:"dân số",ph:"/ˌpɒpjʊˈleɪʃən/",type:"danh từ",ex:"Large population."},
+{en:"souvenir",vi:"quà lưu niệm",ph:"/ˌsuːvəˈnɪər/",type:"danh từ",ex:"Buy a souvenir."},
+{en:"guide",vi:"hướng dẫn viên",ph:"/ɡaɪd/",type:"danh từ",ex:"A tour guide."},
+{en:"trip",vi:"chuyến đi",ph:"/trɪp/",type:"danh từ",ex:"A road trip."},
+{en:"vacation",vi:"kỳ nghỉ",ph:"/veɪˈkeɪʃən/",type:"danh từ",ex:"Summer vacation."},
+{en:"booking",vi:"đặt chỗ",ph:"/ˈbʊkɪŋ/",type:"danh từ",ex:"Make a booking."},
+{en:"landmark",vi:"địa danh nổi tiếng",ph:"/ˈlændmɑːrk/",type:"danh từ",ex:"A famous landmark."},
+{en:"itinerary",vi:"lịch trình du lịch",ph:"/aɪˈtɪnərɛri/",type:"danh từ",ex:"Plan your itinerary."},
+{en:"currency",vi:"tiền tệ",ph:"/ˈkʌrənsi/",type:"danh từ",ex:"Exchange currency."},
+{en:"accommodation",vi:"chỗ ở",ph:"/əˌkɒməˈdeɪʃən/",type:"danh từ",ex:"Find accommodation."},
+{en:"sightseeing",vi:"tham quan",ph:"/ˈsaɪtsiːɪŋ/",type:"danh từ",ex:"Go sightseeing."},
+{en:"immigration",vi:"nhập cư",ph:"/ˌɪmɪˈɡreɪʃən/",type:"danh từ",ex:"Clear immigration."},
+{en:"map",vi:"bản đồ",ph:"/mæp/",type:"danh từ",ex:"Read the map."}
+],
+"🌱 Môi trường":[
+{en:"environment",vi:"môi trường",ph:"/ɪnˈvaɪrənmənt/",type:"danh từ",ex:"Protect the environment."},
+{en:"pollution",vi:"ô nhiễm",ph:"/pəˈluːʃən/",type:"danh từ",ex:"Air pollution is bad."},
+{en:"recycle",vi:"tái chế",ph:"/ˌriːˈsaɪkəl/",type:"động từ",ex:"Recycle your waste."},
+{en:"waste",vi:"rác thải",ph:"/weɪst/",type:"danh từ",ex:"Reduce waste."},
+{en:"solar",vi:"năng lượng mặt trời",ph:"/ˈsoʊlər/",type:"tính từ",ex:"Solar power."},
+{en:"climate",vi:"khí hậu",ph:"/ˈklaɪmɪt/",type:"danh từ",ex:"Climate change."},
+{en:"global warming",vi:"nóng lên toàn cầu",ph:"/ˈɡloʊbəl ˈwɔːrmɪŋ/",type:"danh từ",ex:"Stop global warming."},
+{en:"ocean",vi:"đại dương",ph:"/ˈoʊʃən/",type:"danh từ",ex:"Clean the ocean."},
+{en:"nature",vi:"thiên nhiên",ph:"/ˈneɪtʃər/",type:"danh từ",ex:"Love nature."},
+{en:"endangered",vi:"có nguy cơ tuyệt chủng",ph:"/ɪnˈdeɪndʒərd/",type:"tính từ",ex:"Endangered species."},
+{en:"plant",vi:"trồng cây",ph:"/plænt/",type:"động từ",ex:"Plant more trees."},
+{en:"carbon",vi:"carbon",ph:"/ˈkɑːrbən/",type:"danh từ",ex:"Reduce carbon."},
+{en:"sustainable",vi:"bền vững",ph:"/səˈsteɪnəbəl/",type:"tính từ",ex:"Sustainable living."},
+{en:"biodiversity",vi:"đa dạng sinh học",ph:"/ˌbaɪoʊdaɪˈvɜːrsɪti/",type:"danh từ",ex:"Protect biodiversity."},
+{en:"emission",vi:"khí thải",ph:"/ɪˈmɪʃən/",type:"danh từ",ex:"Reduce emissions."},
+{en:"conservation",vi:"bảo tồn",ph:"/ˌkɒnsəˈveɪʃən/",type:"danh từ",ex:"Wildlife conservation."},
+{en:"ecosystem",vi:"hệ sinh thái",ph:"/ˈiːkoʊsɪstəm/",type:"danh từ",ex:"A fragile ecosystem."},
+{en:"renewable",vi:"có thể tái tạo",ph:"/rɪˈnjuːəbəl/",type:"tính từ",ex:"Renewable energy."},
+{en:"compost",vi:"phân hữu cơ",ph:"/ˈkɒmpɒst/",type:"danh từ",ex:"Make compost."},
+{en:"deforestation",vi:"phá rừng",ph:"/dɪˌfɒrɪˈsteɪʃən/",type:"danh từ",ex:"Stop deforestation."}
+],
+"🍳 Nấu ăn":[
+{en:"boil",vi:"đun sôi",ph:"/bɔɪl/",type:"động từ",ex:"Boil the water."},
+{en:"fry",vi:"chiên / xào",ph:"/fraɪ/",type:"động từ",ex:"Fry the egg."},
+{en:"bake",vi:"nướng lò",ph:"/beɪk/",type:"động từ",ex:"Bake a cake."},
+{en:"grill",vi:"nướng vỉ",ph:"/ɡrɪl/",type:"động từ",ex:"Grill the meat."},
+{en:"mix",vi:"trộn",ph:"/mɪks/",type:"động từ",ex:"Mix the ingredients."},
+{en:"chop",vi:"thái / băm",ph:"/tʃɒp/",type:"động từ",ex:"Chop the vegetables."},
+{en:"peel",vi:"gọt vỏ",ph:"/piːl/",type:"động từ",ex:"Peel the orange."},
+{en:"stir",vi:"khuấy",ph:"/stɜːr/",type:"động từ",ex:"Stir the soup."},
+{en:"taste",vi:"nếm",ph:"/teɪst/",type:"động từ",ex:"Taste the food."},
+{en:"recipe",vi:"công thức nấu ăn",ph:"/ˈrɛsɪpi/",type:"danh từ",ex:"Follow the recipe."},
+{en:"ingredient",vi:"nguyên liệu",ph:"/ɪnˈɡriːdiənt/",type:"danh từ",ex:"Fresh ingredients."},
+{en:"stove",vi:"bếp",ph:"/stoʊv/",type:"danh từ",ex:"Cook on the stove."},
+{en:"oven",vi:"lò nướng",ph:"/ˈʌvən/",type:"danh từ",ex:"Preheat the oven."},
+{en:"fridge",vi:"tủ lạnh",ph:"/frɪdʒ/",type:"danh từ",ex:"Put it in the fridge."},
+{en:"pot",vi:"nồi",ph:"/pɒt/",type:"danh từ",ex:"A big cooking pot."},
+{en:"pan",vi:"chảo",ph:"/pæn/",type:"danh từ",ex:"A frying pan."},
+{en:"cutting board",vi:"thớt",ph:"/ˈkʌtɪŋ bɔːrd/",type:"danh từ",ex:"Use a cutting board."},
+{en:"serve",vi:"dọn ăn",ph:"/sɜːrv/",type:"động từ",ex:"Serve the food."},
+{en:"portion",vi:"khẩu phần",ph:"/ˈpɔːrʃən/",type:"danh từ",ex:"A large portion."},
+{en:"fresh",vi:"tươi",ph:"/frɛʃ/",type:"tính từ",ex:"Fresh vegetables."},
+{en:"marinate",vi:"ướp",ph:"/ˈmærɪneɪt/",type:"động từ",ex:"Marinate the meat."},
+{en:"seasoning",vi:"gia vị",ph:"/ˈsiːzənɪŋ/",type:"danh từ",ex:"Add more seasoning."},
+{en:"steam",vi:"hấp",ph:"/stiːm/",type:"động từ",ex:"Steam the fish."},
+{en:"roast",vi:"rang / quay",ph:"/roʊst/",type:"động từ",ex:"Roast the chicken."},
+{en:"simmer",vi:"đun nhỏ lửa",ph:"/ˈsɪmər/",type:"động từ",ex:"Simmer the sauce."}
+],
+"🎓 Học tập":[
+{en:"skill",vi:"kỹ năng",ph:"/skɪl/",type:"danh từ",ex:"Learn new skills."},
+{en:"practice",vi:"luyện tập",ph:"/ˈpræktɪs/",type:"động từ",ex:"Practice every day."},
+{en:"improve",vi:"cải thiện",ph:"/ɪmˈpruːv/",type:"động từ",ex:"Improve your English."},
+{en:"progress",vi:"tiến bộ",ph:"/ˈprəʊɡrɛs/",type:"danh từ",ex:"Make good progress."},
+{en:"goal",vi:"mục tiêu",ph:"/ɡoʊl/",type:"danh từ",ex:"Set a goal."},
+{en:"achieve",vi:"đạt được",ph:"/əˈtʃiːv/",type:"động từ",ex:"Achieve your dream."},
+{en:"certificate",vi:"chứng chỉ",ph:"/sərˈtɪfɪkɪt/",type:"danh từ",ex:"Get a certificate."},
+{en:"vocabulary",vi:"từ vựng",ph:"/vəˈkæbjʊləri/",type:"danh từ",ex:"Build your vocabulary."},
+{en:"grammar",vi:"ngữ pháp",ph:"/ˈɡræmər/",type:"danh từ",ex:"Study grammar."},
+{en:"pronunciation",vi:"phát âm",ph:"/prəˌnʌnsiˈeɪʃən/",type:"danh từ",ex:"Good pronunciation."},
+{en:"fluent",vi:"lưu loát",ph:"/ˈfluːənt/",type:"tính từ",ex:"Speak fluently."},
+{en:"review",vi:"ôn tập",ph:"/rɪˈvjuː/",type:"động từ",ex:"Review your notes."},
+{en:"memorize",vi:"học thuộc lòng",ph:"/ˈmɛməraɪz/",type:"động từ",ex:"Memorize new words."},
+{en:"focus",vi:"tập trung",ph:"/ˈfoʊkəs/",type:"động từ",ex:"Focus on your work."},
+{en:"challenge",vi:"thách thức",ph:"/ˈtʃælɪndʒ/",type:"danh từ",ex:"Accept the challenge."},
+{en:"mistake",vi:"lỗi sai",ph:"/mɪˈsteɪk/",type:"danh từ",ex:"Learn from mistakes."},
+{en:"correct",vi:"đúng / sửa",ph:"/kəˈrɛkt/",type:"tính từ",ex:"The correct answer."},
+{en:"translate",vi:"dịch",ph:"/trænsˈleɪt/",type:"động từ",ex:"Translate the text."},
+{en:"repeat",vi:"lặp lại",ph:"/rɪˈpiːt/",type:"động từ",ex:"Repeat after me."},
+{en:"effort",vi:"nỗ lực",ph:"/ˈɛfərt/",type:"danh từ",ex:"Put in effort."},
+{en:"deadline",vi:"hạn chót",ph:"/ˈdɛdlaɪn/",type:"danh từ",ex:"Meet the deadline."},
+{en:"curriculum",vi:"chương trình học",ph:"/kəˈrɪkjʊləm/",type:"danh từ",ex:"A new curriculum."},
+{en:"assignment",vi:"bài tập được giao",ph:"/əˈsaɪnmənt/",type:"danh từ",ex:"Complete the assignment."},
+{en:"research",vi:"nghiên cứu",ph:"/rɪˈsɜːrtʃ/",type:"danh từ",ex:"Do research."},
+{en:"understand",vi:"hiểu",ph:"/ˌʌndərˈstænd/",type:"động từ",ex:"Do you understand?"}
+],
+"🔢 Số đếm":[
+{en:"one",vi:"một",ph:"/wʌn/",type:"số",ex:"I have one pen."},
+{en:"two",vi:"hai",ph:"/tuː/",type:"số",ex:"Two eyes."},
+{en:"three",vi:"ba",ph:"/θriː/",type:"số",ex:"Three cats."},
+{en:"four",vi:"bốn",ph:"/fɔːr/",type:"số",ex:"Four seasons."},
+{en:"five",vi:"năm",ph:"/faɪv/",type:"số",ex:"Five fingers."},
+{en:"six",vi:"sáu",ph:"/sɪks/",type:"số",ex:"Six days."},
+{en:"seven",vi:"bảy",ph:"/ˈsɛvən/",type:"số",ex:"Seven colors."},
+{en:"eight",vi:"tám",ph:"/eɪt/",type:"số",ex:"Eight legs."},
+{en:"nine",vi:"chín",ph:"/naɪn/",type:"số",ex:"Nine lives."},
+{en:"ten",vi:"mười",ph:"/tɛn/",type:"số",ex:"Ten students."},
+{en:"eleven",vi:"mười một",ph:"/ɪˈlɛvən/",type:"số",ex:"Eleven players."},
+{en:"twelve",vi:"mười hai",ph:"/twɛlv/",type:"số",ex:"Twelve months."},
+{en:"twenty",vi:"hai mươi",ph:"/ˈtwɛnti/",type:"số",ex:"Twenty years old."},
+{en:"fifty",vi:"năm mươi",ph:"/ˈfɪfti/",type:"số",ex:"Fifty people."},
+{en:"hundred",vi:"một trăm",ph:"/ˈhʌndrəd/",type:"số",ex:"One hundred days."},
+{en:"thousand",vi:"một nghìn",ph:"/ˈθaʊzənd/",type:"số",ex:"A thousand stars."},
+{en:"million",vi:"một triệu",ph:"/ˈmɪljən/",type:"số",ex:"One million people."},
+{en:"first",vi:"thứ nhất / đầu tiên",ph:"/fɜːrst/",type:"số thứ tự",ex:"She is the first."},
+{en:"second",vi:"thứ hai",ph:"/ˈsɛkənd/",type:"số thứ tự",ex:"He is second."},
+{en:"last",vi:"cuối cùng",ph:"/læst/",type:"tính từ",ex:"This is the last one."},
+{en:"zero",vi:"không",ph:"/ˈzɪəroʊ/",type:"số",ex:"Zero means nothing."},
+{en:"thirty",vi:"ba mươi",ph:"/ˈθɜːrti/",type:"số",ex:"Thirty days."},
+{en:"forty",vi:"bốn mươi",ph:"/ˈfɔːrti/",type:"số",ex:"Forty people came."},
+{en:"double",vi:"gấp đôi",ph:"/ˈdʌbəl/",type:"tính từ",ex:"Double the amount."},
+{en:"half",vi:"một nửa",ph:"/hɑːf/",type:"danh từ",ex:"Half a cup."},
+{en:"quarter",vi:"một phần tư",ph:"/ˈkwɔːrtər/",type:"danh từ",ex:"A quarter of the pie."},
+{en:"total",vi:"tổng số",ph:"/ˈtoʊtəl/",type:"danh từ",ex:"The total is ten."},
+{en:"count",vi:"đếm",ph:"/kaʊnt/",type:"động từ",ex:"Count to ten."},
+{en:"calculate",vi:"tính toán",ph:"/ˈkælkjuleɪt/",type:"động từ",ex:"Calculate the sum."},
+{en:"thirteen",vi:"mười ba",ph:"/ˌθɜːrˈtiːn/",type:"số",ex:"Thirteen players."}
+],
+"🗺 Hướng & Vị trí":[
+{en:"left",vi:"trái",ph:"/lɛft/",type:"danh từ",ex:"Turn left here."},
+{en:"right",vi:"phải",ph:"/raɪt/",type:"danh từ",ex:"Turn right at the light."},
+{en:"up",vi:"lên / phía trên",ph:"/ʌp/",type:"trạng từ",ex:"Look up."},
+{en:"down",vi:"xuống / phía dưới",ph:"/daʊn/",type:"trạng từ",ex:"Sit down."},
+{en:"in",vi:"trong",ph:"/ɪn/",type:"giới từ",ex:"The cat is in the box."},
+{en:"out",vi:"ngoài",ph:"/aʊt/",type:"trạng từ",ex:"Go out now."},
+{en:"front",vi:"phía trước",ph:"/frʌnt/",type:"danh từ",ex:"Stand in front."},
+{en:"back",vi:"phía sau",ph:"/bæk/",type:"danh từ",ex:"Go to the back."},
+{en:"near",vi:"gần",ph:"/nɪər/",type:"giới từ",ex:"Sit near me."},
+{en:"far",vi:"xa",ph:"/fɑːr/",type:"tính từ",ex:"It is far from here."},
+{en:"here",vi:"ở đây",ph:"/hɪər/",type:"trạng từ",ex:"Come here."},
+{en:"there",vi:"ở đó / ở kia",ph:"/ðɛr/",type:"trạng từ",ex:"Go there."},
+{en:"inside",vi:"bên trong",ph:"/ˈɪnsaɪd/",type:"trạng từ",ex:"Stay inside."},
+{en:"outside",vi:"bên ngoài",ph:"/ˈaʊtsaɪd/",type:"trạng từ",ex:"Play outside."},
+{en:"above",vi:"phía trên / bên trên",ph:"/əˈbʌv/",type:"giới từ",ex:"The light is above."},
+{en:"below",vi:"phía dưới / bên dưới",ph:"/bɪˈloʊ/",type:"giới từ",ex:"Look below."},
+{en:"between",vi:"ở giữa (hai vật)",ph:"/bɪˈtwiːn/",type:"giới từ",ex:"Sit between us."},
+{en:"next to",vi:"kế bên",ph:"/ˈnɛkst tuː/",type:"giới từ",ex:"Sit next to me."},
+{en:"north",vi:"phía bắc",ph:"/nɔːrθ/",type:"danh từ",ex:"Go north."},
+{en:"south",vi:"phía nam",ph:"/saʊθ/",type:"danh từ",ex:"Birds fly south."},
+{en:"east",vi:"phía đông",ph:"/iːst/",type:"danh từ",ex:"The sun rises in the east."},
+{en:"west",vi:"phía tây",ph:"/wɛst/",type:"danh từ",ex:"The sun sets in the west."},
+{en:"corner",vi:"góc",ph:"/ˈkɔːrnər/",type:"danh từ",ex:"On the corner."},
+{en:"center",vi:"trung tâm",ph:"/ˈsɛntər/",type:"danh từ",ex:"In the center."},
+{en:"beside",vi:"bên cạnh",ph:"/bɪˈsaɪd/",type:"giới từ",ex:"Stand beside me."},
+{en:"opposite",vi:"đối diện",ph:"/ˈɒpəzɪt/",type:"giới từ",ex:"Opposite the school."},
+{en:"straight",vi:"thẳng",ph:"/streɪt/",type:"trạng từ",ex:"Go straight ahead."},
+{en:"across",vi:"qua / băng qua",ph:"/əˈkrɒs/",type:"giới từ",ex:"Walk across the road."},
+{en:"along",vi:"dọc theo",ph:"/əˈlɒŋ/",type:"giới từ",ex:"Walk along the river."},
+{en:"direction",vi:"hướng / chỉ dẫn",ph:"/dɪˈrɛkʃən/",type:"danh từ",ex:"Which direction?"}
+]};
+const ALL_WORDS = Object.assign({}, _W1, _W2, _W3);
+
+// ── STORAGE ──
+const SK='fc2_prog';
+function load(){try{return JSON.parse(localStorage.getItem(SK))||{};}catch{return {};}}
+function save(s){try{localStorage.setItem(SK,JSON.stringify(s));}catch{}}
+let store=load();
+function recordAnswer(word,correct){
+  if(!store[word])store[word]={seen:0,wrong:0};
+  store[word].seen++;
+  if(!correct)store[word].wrong++;
+  store[word].last=Date.now();
+  save(store);
+}
+function getWeak(word){const d=store[word];if(!d||d.seen<1)return 0;return d.wrong/d.seen;}
+
+// ── STATE ──
+let cats=Object.keys(ALL_WORDS), curCat=cats[0];
+let deck=[],idx=0,knowC=0,wrongC=0,flipped=false,mode='flash';
+let typeAnswered=false;
+
+// ── TABS ──
+function buildTabs(){
+  const wrap=document.getElementById('tabs');
+  wrap.innerHTML='';
+  cats.forEach(cat=>{
+    const btn=document.createElement('button');
+    btn.className='tab'+(cat===curCat?' active':'');
+    const hasProg=ALL_WORDS[cat].some(w=>store[w.en]&&store[w.en].seen>0);
+    if(hasProg&&cat!==curCat)btn.classList.add('has-prog');
+    btn.textContent=cat;
+    btn.onclick=()=>{curCat=cat;buildTabs();restart();};
+    wrap.appendChild(btn);
+  });
+}
+
+// ── SHUFFLE ──
+function shuffle(a){const b=[...a];for(let i=b.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]];}return b;}
+
+// ── SWIPE ──
+let touchX=0;
+document.getElementById('card-scene').addEventListener('touchstart',e=>{touchX=e.touches[0].clientX;},{passive:true});
+document.getElementById('card-scene').addEventListener('touchend',e=>{
+  const dx=e.changedTouches[0].clientX-touchX;
+  if(Math.abs(dx)>60&&flipped){
+    if(dx>0)answer(true);
+    else answer(false);
+  }
+},{passive:true});
+
+// ── MODE ──
+function setMode(m){
+  mode=m;
+  ['flash','quiz','type'].forEach(x=>{
+    document.getElementById('m-'+x).classList.toggle('active',x===m);
+    document.getElementById(x+'-ui').style.display=(x===m)?'':'none';
+  });
+  document.getElementById('result').classList.remove('show');
+  restart();
+}
+
+// ── RESTART ──
+function restart(){
+  deck=shuffle([...ALL_WORDS[curCat]]);
+  idx=0;knowC=0;wrongC=0;flipped=false;
+  document.getElementById('result').classList.remove('show');
+  ['flash-ui','quiz-ui','type-ui'].forEach(id=>{
+    document.getElementById(id).style.display=(id===mode+'-ui')?'':'none';
+  });
+  showCard();
+  document.getElementById('scroll-area').scrollTop=0;
+}
+
+// ── SHOW CARD ──
+function showCard(){
+  if(idx>=deck.length){showResult();return;}
+  const c=deck[idx],total=deck.length;
+  document.getElementById('prog-text').textContent=`Thẻ ${idx+1}/${total}`;
+  document.getElementById('prog-score').textContent=`✅ ${knowC} ❌ ${wrongC}`;
+  document.getElementById('prog-fill').style.width=(idx/total*100)+'%';
+  if(mode==='flash'){
+    document.getElementById('f-en').textContent=c.en;
+    document.getElementById('f-ph').textContent=c.ph;
+    document.getElementById('f-vi').textContent=c.vi;
+    document.getElementById('f-type').textContent=c.type;
+    document.getElementById('f-ex').textContent='"'+c.ex+'"';
+    flipped=false;
+    document.getElementById('card-scene').classList.remove('flipped');
+  } else if(mode==='quiz'){
+    showQuiz(c);
+  } else {
+    showType(c);
+  }
+}
+
+// ── FLASH ──
+function flipCard(){
+  flipped=!flipped;
+  document.getElementById('card-scene').classList.toggle('flipped',flipped);
+}
+function answer(know){
+  recordAnswer(deck[idx].en,know);
+  if(know)knowC++; else wrongC++;
+  idx++;showCard();
+}
+
+// ── QUIZ ──
+function showQuiz(c){
+  document.getElementById('q-en').textContent=c.en;
+  document.getElementById('q-ph').textContent=c.ph;
+  const pool=ALL_WORDS[curCat].filter(w=>w.en!==c.en);
+  const wrong=shuffle(pool).slice(0,3).map(w=>w.vi);
+  const opts=shuffle([c.vi,...wrong]);
+  const wrap=document.getElementById('q-opts');
+  wrap.innerHTML='';
+  opts.forEach(opt=>{
+    const btn=document.createElement('button');
+    btn.className='quiz-opt';
+    btn.textContent=opt;
+    btn.onclick=()=>selectQuiz(btn,opt,c);
+    wrap.appendChild(btn);
+  });
+}
+function selectQuiz(btn,selected,c){
+  const correct=selected===c.vi;
+  recordAnswer(c.en,correct);
+  document.querySelectorAll('.quiz-opt').forEach(b=>{
+    b.disabled=true;
+    if(b.textContent===c.vi)b.classList.add('correct');
+    else if(b===btn&&!correct)b.classList.add('wrong');
+  });
+  if(correct)knowC++; else wrongC++;
+  setTimeout(()=>{idx++;showCard();},900);
+}
+
+// ── TYPE ──
+function showType(c){
+  document.getElementById('t-en').textContent=c.en;
+  document.getElementById('t-ph').textContent=c.ph;
+  document.getElementById('t-ex').textContent='"'+c.ex+'"';
+  const inp=document.getElementById('t-input');
+  inp.value='';inp.className='type-input';inp.disabled=false;
+  document.getElementById('t-feedback').className='type-feedback';
+  document.getElementById('t-feedback').textContent='';
+  document.getElementById('t-next-row').style.display='none';
+  typeAnswered=false;
+}
+function normalize(s){
+  return s.toLowerCase().trim()
+    .replace(/[àáạảãâầấậẩẫăằắặẳẵ]/g,'a')
+    .replace(/[èéẹẻẽêềếệểễ]/g,'e')
+    .replace(/[ìíịỉĩ]/g,'i')
+    .replace(/[òóọỏõôồốộổỗơờớợởỡ]/g,'o')
+    .replace(/[ùúụủũưừứựửữ]/g,'u')
+    .replace(/[ỳýỵỷỹ]/g,'y')
+    .replace(/đ/g,'d')
+    .replace(/\s+/g,' ');
+}
+function checkType(){
+  const c=deck[idx];
+  const inp=document.getElementById('t-input');
+  const val=inp.value.trim();
+  if(!val||typeAnswered)return;
+  typeAnswered=true;
+  const nv=normalize(val);
+  const answers=c.vi.split('/').map(s=>normalize(s.trim()));
+  const correct=answers.some(a=>a===nv||a.includes(nv)||nv.includes(a.split(' ')[0]));
+  inp.disabled=true;
+  inp.className='type-input '+(correct?'correct-input':'wrong-input');
+  const fb=document.getElementById('t-feedback');
+  fb.className='type-feedback show '+(correct?'ok':'no');
+  fb.textContent=correct?'✅ Đúng rồi! '+c.vi:'❌ Chưa đúng. Đáp án: '+c.vi;
+  recordAnswer(c.en,correct);
+  if(correct)knowC++; else wrongC++;
+  document.getElementById('t-next-row').style.display='flex';
+}
+function nextCard(){idx++;showCard();}
+
+// ── RESULT ──
+function showResult(){
+  ['flash-ui','quiz-ui','type-ui'].forEach(id=>document.getElementById(id).style.display='none');
+  const res=document.getElementById('result');
+  res.classList.add('show');
+  document.getElementById('r-know').textContent=knowC;
+  document.getElementById('r-wrong').textContent=wrongC;
+  document.getElementById('r-total').textContent=deck.length;
+  const pct=Math.round(knowC/deck.length*100);
+  document.getElementById('r-msg').textContent=
+    pct>=80?`Xuất sắc! Nhớ ${pct}% 🔥`:
+    pct>=50?`Khá tốt! Ôn lại những từ còn sai 💪`:
+    `Cố lên! Tiếp tục học nhé 📚`;
+  buildTabs();
+}
+
+// ── PAGES ──
+function showPage(p){
+  ['learn','weak','progress'].forEach(x=>{
+    document.getElementById('page-'+x).style.display=(x===p)?'':'none';
+    document.getElementById('nav-'+x).classList.toggle('active',x===p);
+  });
+  document.getElementById('scroll-area').scrollTop=0;
+  if(p==='weak')renderWeak();
+  if(p==='progress')renderProgress();
+}
+
+// ── WEAK ──
+function renderWeak(){
+  const list=document.getElementById('weak-list');
+  list.innerHTML='';
+  let items=[];
+  cats.forEach(cat=>{
+    ALL_WORDS[cat].forEach(w=>{
+      const d=store[w.en];
+      if(d&&d.seen>=1&&d.wrong>=1){
+        const pct=Math.round(d.wrong/d.seen*100);
+        if(pct>=30)items.push({...w,pct,cat});
+      }
+    });
+  });
+  items.sort((a,b)=>b.pct-a.pct);
+  if(!items.length){
+    list.innerHTML='<div class="empty-state"><span class="big">🎉</span>Chưa có từ yếu nào!<br>Hãy học thêm để theo dõi.</div>';
+    return;
+  }
+  items.forEach(w=>{
+    const div=document.createElement('div');
+    div.className='weak-item';
+    div.innerHTML=`<span class="weak-en">${w.en}</span><span class="weak-vi">${w.vi}</span><span class="weak-score">sai ${w.pct}%</span>`;
+    list.appendChild(div);
+  });
+}
+
+// ── PROGRESS ──
+function renderProgress(){
+  let totalSeen=0,totalWords=0;
+  cats.forEach(cat=>totalWords+=ALL_WORDS[cat].length);
+  Object.values(store).forEach(d=>{if(d.seen>0)totalSeen++;});
+  document.getElementById('prog-summary').textContent=
+    `Đã học: ${totalSeen}/${totalWords} từ (${Math.round(totalSeen/totalWords*100)}%)`;
+  const wrap=document.getElementById('cat-prog-list');
+  wrap.innerHTML='';
+  cats.forEach(cat=>{
+    const words=ALL_WORDS[cat];
+    const seen=words.filter(w=>store[w.en]&&store[w.en].seen>0).length;
+    const pct=Math.round(seen/words.length*100);
+    const div=document.createElement('div');
+    div.className='cat-prog-item';
+    div.innerHTML=`<div class="cat-prog-top"><span class="cat-prog-name">${cat}</span><span class="cat-prog-pct">${seen}/${words.length} · ${pct}%</span></div><div class="cat-prog-bar"><div class="cat-prog-fill" style="width:${pct}%"></div></div>`;
+    wrap.appendChild(div);
+  });
+}
+
+// ── THEME ──
+function toggleTheme(){
+  document.body.classList.toggle('light');
+  document.getElementById('btn-theme').textContent=document.body.classList.contains('light')?'🌙':'☀️';
+  localStorage.setItem('fc_theme2',document.body.classList.contains('light')?'light':'dark');
+}
+
+// ── INIT ──
+(function(){
+  if(localStorage.getItem('fc_theme2')==='light'){
+    document.body.classList.add('light');
+    document.getElementById('btn-theme').textContent='🌙';
+  }
+  buildTabs();
+  restart();
+})();
+</script>
+</body>
+</html>
