@@ -1,0 +1,48 @@
+name: Cập nhật dữ liệu realclothes.co
+
+on:
+  schedule:
+    - cron: "0 23 * * *"   # 6h sáng giờ Việt Nam, mỗi ngày
+  workflow_dispatch:        # nút "Run workflow" để chạy tay
+
+permissions:
+  contents: write
+
+concurrency:
+  group: cap-nhat-du-lieu
+  cancel-in-progress: false
+
+jobs:
+  cap-nhat:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Cài thư viện
+        run: pip install onnxruntime pillow numpy
+
+      - name: Lưu sẵn mô hình nhìn hình
+        uses: actions/cache@v4
+        with:
+          path: .model
+          key: dinov2-small-q8
+
+      - name: Lấy dữ liệu mới và tạo lại trang
+        run: python scripts/update_data.py
+
+      - name: Đăng bản mới nếu có thay đổi
+        run: |
+          if git diff --quiet -- index.html; then
+            echo "Web không có gì mới, giữ nguyên."
+            exit 0
+          fi
+          git config user.name "cap-nhat-tu-dong"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git commit -m "Cập nhật dữ liệu $(TZ=Asia/Ho_Chi_Minh date +'%d/%m/%Y %H:%M')"
+          git push
