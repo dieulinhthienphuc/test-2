@@ -32,6 +32,13 @@ jobs:
           path: .model
           key: dinov2-small-q8
 
+      - name: Lưu sẵn vector hình (lần sau chạy nhanh)
+        uses: actions/cache@v4
+        with:
+          path: .cache
+          key: vector-hinh-${{ github.run_id }}
+          restore-keys: vector-hinh-
+
       - name: Lấy dữ liệu mới và tạo lại trang
         run: python scripts/update_data.py
 
